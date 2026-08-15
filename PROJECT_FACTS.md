@@ -110,6 +110,21 @@ Durable, project-specific decisions that should survive across sessions.
   creates a business and a card together must do the same
   pre-validation — don't rely on the DB constraint alone to protect
   against ordinary user error, only against genuine races.
+- Any Next.js admin/data page with **no dynamic route segment and no
+  `searchParams`/dynamic API usage** (e.g. `src/app/admin/dashboard/
+  page.tsx`) gets silently statically prerendered at build time by
+  default — confirmed via the build route table showing `○` instead of
+  `ƒ`. For a page that queries live DB data, this both breaks the CI
+  build (no `DATABASE_URL` at build time — confirmed by temporarily
+  hiding `.env.local` and rebuilding) and, worse, would freeze the
+  page's data at whatever it was on the last deploy in production.
+  Fixed by adding `export const dynamic = "force-dynamic";`. Pages
+  *with* a dynamic route segment (like 3c's upcoming `/admin/dashboard/
+  [businessId]`) don't have this problem by default — per Next's own
+  docs (`generate-static-params.md`), a dynamic segment with no
+  `generateStaticParams` is already rendered on-demand, not
+  prerendered — but double-check the build route table for `ƒ` on any
+  new data-fetching page regardless, since this is easy to miss.
 - `src/features/analytics/constants.ts`'s `DASHBOARD_DATA_START_AT` is a
   deliberate placeholder (`2100-01-01`) as of 3a — it must be set to the
   real V3 launch date/time in sub-phase 3c, right before that final PR
