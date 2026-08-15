@@ -24,8 +24,21 @@ Source: `ARCHITECTURE.md` (confirmed).
 
 Architecture confirmed (see `ARCHITECTURE.md` § V2) — routing already
 works with no changes; scope is admin CRUD (Create + Read only) behind
-HTTP Basic Auth. Not yet sub-phased into 2a/2b/etc. — that's
-`roadmap-planner`'s job, next. Source: `AI_Engineering_and_NFC_Roadmap.md` §10.
+HTTP Basic Auth.
+
+- [ ] **2a. Basic Auth middleware** — not started
+      `middleware.ts` gating everything under `/admin/*`, built and
+      verified before any admin route exists. Verify: no credentials →
+      401, correct credentials → passes through, missing env vars →
+      fails closed.
+- [ ] **2b. Business/Card creation + listing logic** — not started
+      `features/business-management/api.ts` — `createBusiness()`,
+      `createCard()`, `listBusinesses()`, with server-side validation
+      (slug format, required fields). Testable independently of any UI.
+- [ ] **2c. Admin page (list + create form)** — not started
+      `app/admin/businesses/page.tsx` — wires 2a + 2b together: a form
+      to add a business + its card, and a list of existing ones.
+      Replaces `scripts/seed.ts` as the real way to onboard businesses.
 
 ## Phase 3 — V3: Dashboard, analytics
 
