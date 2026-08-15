@@ -2,11 +2,20 @@
 
 Durable, project-specific decisions that should survive across sessions.
 
-- `SESSION_SECRET` (V4 auth) is still only in `.env.local`, not yet in
-  Vercel's production env vars — 4b's login flow was verified against
-  the real dev server + real production database, not a live Vercel
-  deployment. It **must** be added to Vercel before 4c ships (the
-  actual cutover from Basic Auth), or the live login flow will 500.
+- `SESSION_SECRET` is set in Vercel's env vars (Preview + Production
+  scopes), confirmed by the owner before 4c's cutover — a **different**
+  value than the one in `.env.local`, deliberately, since session
+  cookies are already environment-scoped by domain (a `localhost`
+  cookie never reaches `.vercel.app`), so there's no need for the
+  secrets to match and separate values cost nothing extra.
+- A future Server Action that calls a `requirePlatformAdmin()`-guarded
+  `api.ts` function from inside a `try/catch` must call
+  `requirePlatformAdmin()` itself first, outside that `try` — otherwise
+  its internal `redirect()` can get caught by a generic `catch` and
+  silently rerouted to a misleading error instead of `/login`. Hit and
+  fixed once already in `createBusinessAction` (4c); this pattern will
+  recur anywhere `requirePlatformAdmin()`/`verifySession()` gets reused
+  inside a try-wrapped mutation, including 4d.
 - The real `platform_admin` account exists in production:
   `gary_reyes@dlsu.edu.ph` / `admin123` (same deliberate simplicity as
   the old Basic Auth credentials). Created via `npm run admin:create`,

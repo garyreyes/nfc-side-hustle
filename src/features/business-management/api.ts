@@ -1,5 +1,6 @@
 import "server-only";
 import { eq } from "drizzle-orm";
+import { requirePlatformAdmin } from "@/lib/auth/dal";
 import { db } from "@/lib/db/client";
 import { businesses, cards } from "@/lib/db/schema";
 import { isValidSlug } from "@/lib/slug";
@@ -21,6 +22,8 @@ function isPgError(err: unknown, code: string): boolean {
 }
 
 export async function createBusiness(input: { name: string; googleReviewUrl: string }) {
+  await requirePlatformAdmin();
+
   const name = input.name.trim();
   const googleReviewUrl = input.googleReviewUrl.trim();
 
@@ -42,6 +45,8 @@ export async function createBusiness(input: { name: string; googleReviewUrl: str
 }
 
 export async function isSlugTaken(slug: string): Promise<boolean> {
+  await requirePlatformAdmin();
+
   const [existing] = await db.select().from(cards).where(eq(cards.slug, slug));
   return !!existing;
 }
@@ -51,6 +56,8 @@ export async function createCard(input: {
   slug: string;
   type?: "qr" | "nfc";
 }) {
+  await requirePlatformAdmin();
+
   const slug = input.slug.trim();
 
   if (!isValidSlug(slug)) {
@@ -95,6 +102,8 @@ export type BusinessWithCards = {
 };
 
 export async function listBusinesses(): Promise<BusinessWithCards[]> {
+  await requirePlatformAdmin();
+
   const rows = await db
     .select({
       businessId: businesses.id,

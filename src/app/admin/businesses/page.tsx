@@ -1,11 +1,14 @@
 import { createBusinessAction } from "@/features/business-management/actions";
 import { listBusinesses } from "@/features/business-management/api";
+import { requirePlatformAdmin } from "@/lib/auth/dal";
 
 export default async function AdminBusinessesPage({
   searchParams,
 }: {
   searchParams: Promise<{ error?: string }>;
 }) {
+  await requirePlatformAdmin();
+
   const { error } = await searchParams;
   const businesses = await listBusinesses();
 

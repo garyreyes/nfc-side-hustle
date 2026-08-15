@@ -1,4 +1,5 @@
 import { getBusinessScanTotals } from "@/features/analytics/api";
+import { requirePlatformAdmin } from "@/lib/auth/dal";
 
 // Without an explicit opt-out, Next.js statically prerenders this page at
 // build time (it has no dynamic route segment or searchParams like
@@ -8,6 +9,8 @@ import { getBusinessScanTotals } from "@/features/analytics/api";
 export const dynamic = "force-dynamic";
 
 export default async function AdminDashboardPage() {
+  await requirePlatformAdmin();
+
   const totals = await getBusinessScanTotals();
 
   return (
