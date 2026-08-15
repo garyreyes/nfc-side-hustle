@@ -233,17 +233,152 @@ matches the table convention already used elsewhere in `/admin/*`.
 Everything under V1/V2 (`app/r/[slug]`, `features/scan-tracking`,
 `features/business-management`, `lib/db`) is unchanged.
 
+## V4 Architecture — Accounts, Auth, Roles
+
+V4 replaces the shared HTTP Basic Auth password (V2) with real accounts.
+**First real schema change since V1** — everything before this was
+purely additive.
+
+**Who gets accounts**, chosen deliberately over simpler options: both
+the platform owner *and* individual business owners get their own
+logins — not just one shared admin account. A business owner logging
+in sees only their own dashboard, never the business list or other
+businesses' data.
+
+```
+User      (id, email, passwordHash, role: "platform_admin" | "business_owner", createdAt)
+Session   (id, userId, expiresAt, createdAt)
+Business  (id, name, googleReviewUrl, ownerId -> User, nullable)   # NEW COLUMN
+Card      (unchanged)
+ScanEvent (unchanged)
+
+User 1---* Session
+User 1---1 Business   (via Business.ownerId — one owner per business, chosen
+                        over a join table since no business needs multiple
+                        logins today)
+Business 1---* Card
+Card 1---* ScanEvent
+```
+
+`Business.ownerId` is nullable — Saffron's existing row gets
+`ownerId = NULL` until an owner account is created for it; no data
+loss, no migration risk to existing rows.
+
+**Auth mechanism**, per Next.js's own current guidance (not just prior
+convention): database sessions, not stateless JWTs — matches the
+self-rolled, revocable direction chosen over an auth library/provider.
+`proxy.ts` performs only *optimistic* checks (read the cookie, redirect
+to `/login` for UX) — it is explicitly **not** the security boundary.
+The real enforcement is a Data Access Layer (`lib/auth/dal.ts`,
+`verifySession()`) called inside every Server Component, Server
+Action, and query function that touches user-scoped data. This is a
+meaningful shift from V1–V3, where `proxy.ts` alone was the entire
+gate.
+
+- Passwords: **`bcryptjs`**, not `bcrypt` — pure JS, zero native-binding
+  build risk (the plain `bcrypt` package is a native addon; it usually
+  builds fine on Vercel's Node.js serverless functions, but this
+  project has been bitten by exactly this class of environment
+  mismatch before — the Edge-runtime `timingSafeEqual` issue in 2a —
+  so avoiding the risk entirely is worth the choice).
+- No email service in V4: no self-serve signup, no "forgot password"
+  email flow. The platform admin creates a business owner's account
+  (with an initial password) when creating their business — same
+  simplicity spirit as today's `admin123`. Recovery for the admin's own
+  account, if locked out, is a direct DB script, matching the existing
+  `scripts/seed.ts` pattern.
+- Routing split: `/admin/*` stays platform-admin-only; a new top-level
+  `/dashboard` is the business owner's own landing page — chosen over
+  reusing `/admin/dashboard/[businessId]` with access control bolted
+  on, so the URL itself never implies "admin" to someone who isn't one.
+
+**Security baseline for V4** (supersedes V2's Basic Auth checklist
+entirely — full checklist run via the `security-baseline` skill before
+any V4 code; findings folded in below):
+- Every user-scoped query requires a verified session; a
+  `business_owner`'s analytics queries are scoped to their own
+  `businessId` **inside the query function itself** (not just by the
+  calling Server Component having checked first) — defense in depth,
+  since Neon has no RLS-equivalent and the DAL is the *entire*
+  enforcement boundary with no database-level backstop.
+- `passwordHash` never leaves the server — Server Components/Actions
+  return only the minimal session payload (userId, role).
+- Session cookie: `httpOnly`, `secure`, `sameSite=lax`, ~7-day expiry
+  (matches Next's own docs default). **Logout deletes the DB `Session`
+  row**, not just the cookie — a stolen cookie must stop working the
+  moment the real user logs out, not keep validating against a
+  now-orphaned session record. Logout is a POST Server Action, never a
+  GET link (a prefetched `<Link>` to a GET `/logout` would silently
+  log users out via Next's own prefetching).
+- Login error handling avoids the same class of timing leak 2a's
+  review already caught once in this codebase (a `||` short-circuit
+  that revealed which Basic Auth credential was wrong): always run a
+  bcrypt compare against *some* hash — a dummy one when the email
+  doesn't exist — and always return the same generic "Invalid email or
+  password" message, so failed logins can't be used to enumerate valid
+  business-owner emails.
+- Login reuses the existing `lib/rate-limit.ts` (built for `/r/[slug]`
+  in V1) rather than a new limiter — same known in-memory/per-instance
+  limitation, already an accepted stopgap at this scale.
+- `User.email` uniqueness relies on the DB unique constraint + catching
+  Postgres's `23505` error (the established `isPgError` pattern from
+  `business-management/api.ts`), not a select-then-insert check — same
+  TOCTOU class of bug already fixed once in 2b.
+- Failed login attempts are logged server-side (email attempted +
+  timestamp, never the password) — matches the existing "log
+  unexpected errors" convention from 2c.
+- Baseline security headers (CSP, `X-Frame-Options`, `Referrer-Policy`)
+  added via `next.config.ts` `headers()` — not previously needed when
+  the app was just a redirect service, now directly protects the
+  login page and session cookies.
+- `/admin/*` requires `role = platform_admin`; `/dashboard` requires an
+  authenticated user linked to a business — both enforced in the DAL;
+  `proxy.ts` only provides the redirect-to-login UX shortcut.
+- Server Actions (login/logout, matching every other mutation in this
+  app) get Next 16's built-in CSRF protection automatically (Origin vs.
+  Host header check) — confirmed via the bundled Next docs, not
+  something to build separately.
+- This is a full rewrite of the only access-control mechanism this app
+  has ever had — the single biggest risk in this phase (a mistake
+  could lock out the admin or leave admin data unprotected), which is
+  why a dedicated `security-baseline` pass precedes any V4 code.
+
+Folder structure additions for V4:
+```
+src/
+  lib/
+    auth/
+      session.ts      # NEW — encrypt/decrypt, cookie set/delete, createSession()/deleteSession()
+      dal.ts           # NEW — verifySession() (cached, DB-backed) — the real enforcement point
+      passwords.ts     # NEW — bcryptjs hash/verify
+  features/
+    auth/               # NEW feature
+      api.ts            # login credential check, user lookup
+      actions.ts        # loginAction, logoutAction (Server Actions)
+  app/
+    login/
+      page.tsx          # NEW — public login form
+    dashboard/
+      page.tsx          # NEW — business owner's own single-business view
+    admin/                # unchanged paths, now gated via DAL instead of Basic Auth
+  proxy.ts                # REWRITTEN — optimistic cookie check + redirect, not the security boundary
+```
+`business-management/api.ts` and `analytics/api.ts` both gain a
+`verifySession()` call; `analytics` additionally scopes
+`business_owner` results to their own business.
+
 ## Roadmap context
 
-This is Version 3 of 5 from the project roadmap:
+This is Version 4 of 5 from the project roadmap:
 1. V1 — one business, one QR code, redirect + log ✅
 2. V2 — multiple businesses, routing (already works), admin CRUD
    (Create + Read) ✅
-3. **V3 (this doc)** — dashboard, analytics (full: time-series +
-   per-card breakdown), reusing V2's Basic Auth gate
-4. V4 — accounts, auth, roles
+3. V3 — dashboard, analytics (full: time-series + per-card breakdown) ✅
+4. **V4 (this doc)** — real accounts (platform admin + business
+   owners), database sessions, DAL-enforced authorization, replaces
+   V2's Basic Auth entirely
 5. V5 — multi-branch hierarchy
 
 The entity/folder choices from V1 were made specifically so V2–V5
-extend this structure rather than requiring a rebuild — V3 continues
-that: no schema change, no folder restructure, purely additive.
+extend this structure rather than requiring a rebuild — V4 is the
+first genuine schema change (one nullable column), not a rebuild.
