@@ -71,9 +71,43 @@ constant rather than row filtering.
 
 ## Phase 4 — V4: Accounts, auth, roles
 
-Not yet sub-phased — needs its own `app-architect` pass, and is the
-trigger point for a full `security-baseline` review (auth, sessions,
-authorization). Source: `AI_Engineering_and_NFC_Roadmap.md` §10.
+Architecture confirmed (see `ARCHITECTURE.md` § V4) — real accounts
+for both the platform admin and business owners, database sessions,
+DAL-based authorization replacing V2's Basic Auth entirely. First
+schema change since V1. `security-baseline` pass already run and
+folded into the architecture doc and the sub-phases below.
+
+- [ ] **4a. Schema + auth infrastructure**
+      `User`/`Session` tables, `Business.ownerId` (nullable) migration,
+      `lib/auth/passwords.ts` (bcryptjs), `lib/auth/session.ts`
+      (encrypt/decrypt, cookie set/delete, createSession/
+      deleteSession). No routes, no UI — testable independently via
+      scripts, same pattern as 1a/2b. Existing Basic Auth gate
+      completely untouched — zero risk to the live admin section.
+- [ ] **4b. Login/logout flow**
+      `features/auth/api.ts` (credential check, timing-safe/generic
+      errors, rate-limited via existing `lib/rate-limit.ts`),
+      `features/auth/actions.ts` (loginAction, logoutAction as POST
+      Server Actions), `app/login/page.tsx`, `lib/auth/dal.ts`
+      (`verifySession()`). Includes a one-time script (mirrors
+      `scripts/seed.ts`) to create the platform_admin account.
+      `/admin/*` still runs on Basic Auth, untouched — proves the
+      login mechanism in isolation before anything live depends on it.
+- [ ] **4c. Cutover: retire Basic Auth, gate /admin/* via the DAL**
+      Rewrite `proxy.ts` to optimistic-only checks; add
+      `verifySession()` + role checks to `business-management/api.ts`
+      and the admin dashboard routes; add baseline security headers
+      (`next.config.ts`); remove `ADMIN_USERNAME`/`ADMIN_PASSWORD` from
+      Vercel + `.env.local` once verified live. Single highest-risk
+      sub-phase — the only access-control mechanism this app has ever
+      had gets replaced here. Ships only after 4b is proven working.
+- [ ] **4d. Business owner accounts + scoped /dashboard**
+      Extend business creation to also create/link an owner `User`
+      account; add defense-in-depth `businessId` scoping inside
+      `analytics/api.ts`'s query functions; build
+      `app/dashboard/page.tsx` (business owner's own view, reusing
+      3c's chart/breakdown components). Last sub-phase — V4 complete
+      once this ships.
 
 ## Phase 5 — V5: Multi-branch hierarchy
 
