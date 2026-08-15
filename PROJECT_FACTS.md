@@ -2,18 +2,31 @@
 
 Durable, project-specific decisions that should survive across sessions.
 
-- `SESSION_SECRET` (V4 auth) is generated and set in `.env.local` only
-  so far — it must also be added to Vercel's production env vars
-  before 4b's login flow is tested live, and definitely before 4c
-  ships (the actual cutover from Basic Auth). Not needed on Vercel
-  before that, since nothing live reaches `lib/auth/session.ts` yet.
-- `users.email` has a plain case-sensitive unique constraint with no
-  normalization at the schema level — `Owner@x.com` and `owner@x.com`
-  could exist as distinct rows. Low blast radius today (no self-serve
-  signup, admin manually creates each account), but whichever
-  sub-phase builds `features/auth/api.ts` (4b) should lowercase email
-  at both insert and lookup time rather than relying on schema-level
-  uniqueness alone.
+- `SESSION_SECRET` (V4 auth) is still only in `.env.local`, not yet in
+  Vercel's production env vars — 4b's login flow was verified against
+  the real dev server + real production database, not a live Vercel
+  deployment. It **must** be added to Vercel before 4c ships (the
+  actual cutover from Basic Auth), or the live login flow will 500.
+- The real `platform_admin` account exists in production:
+  `gary_reyes@dlsu.edu.ph` / `admin123` (same deliberate simplicity as
+  the old Basic Auth credentials). Created via `npm run admin:create`,
+  idempotent on re-run.
+- `users.email` is normalized (lowercased) at both insert and lookup
+  time in application code (`features/auth/api.ts`, `scripts/
+  create-admin.ts`) — the schema's unique constraint itself is still
+  plain case-sensitive text, so any future write path touching
+  `users.email` must apply the same lowercasing itself; nothing at the
+  DB layer enforces it.
+- On this Windows/Git Bash environment, `pkill`/`kill -9` do not
+  reliably terminate `npm run dev`/Node processes started via the Bash
+  tool's `run_in_background` — they can silently keep running and
+  cause port conflicts (`next dev` falling back to 3001, or a stale
+  process serving requests while a "fresh" restart's own log looks
+  empty) on later verification steps, which cost real time to diagnose
+  during 4b. Use `PowerShell`'s `Get-Process node | Stop-Process
+  -Force` instead, which does work reliably — check for zero remaining
+  node processes before trusting any "fresh dev server" verification
+  in future sub-phases.
 - V4's two new foreign keys have deliberate, different `ON DELETE`
   behaviors, not Postgres's default: `sessions.user_id` cascades (a
   deleted user's sessions are meaningless), `businesses.owner_id` sets

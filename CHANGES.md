@@ -2,6 +2,47 @@
 
 ## Unreleased
 
+### 2026-08-16 — Login/logout flow (4b)
+Added `features/auth/api.ts` (`verifyCredentials()`), `features/auth/
+actions.ts` (`loginAction`/`logoutAction` as POST Server Actions),
+`app/login/page.tsx` (shows the form, or "Logged in as X" + logout if
+already authenticated), `lib/auth/dal.ts` (`verifySession()`, the real
+DB-backed enforcement point), and `scripts/create-admin.ts` (creates
+the real platform_admin account). `getClientIp()` in `lib/rate-limit.ts`
+was refactored to take a plain `Headers` object instead of `NextRequest`
+so it can be called from a Server Action, which has no request object
+of its own; the one existing call site (`/r/[slug]`) and its tests were
+updated to match. `/admin/*` still runs entirely on Basic Auth,
+untouched — nothing live depends on any of this yet.
+
+Reviewer sub-agent caught and this fixes: `loginAction` was trimming
+the password the same way it trims other form fields, which would
+silently alter a user's actual input before comparison — a future
+account whose password contains whitespace could hash one way and
+verify another, permanently locking it out. Fixed with a dedicated
+non-trimming `passwordField()` helper. Also fixed: failed login
+attempts weren't being logged server-side, despite that being a
+settled requirement in `ARCHITECTURE.md` § V4's security baseline —
+added a log line (email attempted + timestamp, never the password).
+Also fixed: `scripts/create-admin.ts` used a select-then-insert check
+for email uniqueness, the exact TOCTOU pattern this codebase already
+moved away from once in 2b — switched to catching the Postgres unique-
+violation instead, matching the established `isPgError` convention.
+
+Verified end-to-end against the real dev server and real production
+database: correct credentials succeed (session cookie `Secure`+
+`HttpOnly`+`SameSite=lax`, 7-day expiry); wrong password and a
+whitespace-padded correct password both fail with a generic error;
+the login page shows the logged-in state and a working logout, which
+was confirmed (via a direct DB query) to delete the session row, not
+just clear the cookie; failed attempts appear in the server log; and
+`create-admin.ts` is idempotent on a second run. (Verification also
+surfaced and resolved an unrelated environment issue: several
+`npm run dev` background processes had accumulated without being
+killed, since `pkill`/`kill -9` don't reliably terminate
+Windows-spawned Node processes from Git Bash — cleared via PowerShell's
+`Stop-Process`, which does work reliably here.)
+
 ### 2026-08-16 — Schema + auth infrastructure (4a)
 Added `users`/`sessions` tables and a nullable `businesses.owner_id`
 column (first schema change since V1), plus `lib/auth/passwords.ts`

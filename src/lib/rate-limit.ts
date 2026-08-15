@@ -1,5 +1,3 @@
-import type { NextRequest } from "next/server";
-
 const WINDOW_MS = 60_000;
 const MAX_REQUESTS_PER_WINDOW = 20;
 // Crude memory bound: if the map somehow grows this large (e.g. many
@@ -35,11 +33,16 @@ export function isRateLimited(key: string): boolean {
 // normal HTTP header, fully spoofable), while the last entry is what
 // Vercel's own edge actually observed. X-Real-IP is Vercel-set and not
 // attacker-controllable the same way, so prefer it when present.
-export function getClientIp(request: NextRequest): string {
-  const realIp = request.headers.get("x-real-ip");
+//
+// Takes a plain Headers object (not NextRequest) so it can be called
+// from both a Route Handler (request.headers) and a Server Action,
+// which has no request object of its own — only next/headers's
+// headers(), which returns a Headers-compatible ReadonlyHeaders.
+export function getClientIp(headers: Headers): string {
+  const realIp = headers.get("x-real-ip");
   if (realIp) return realIp;
 
-  const forwardedFor = request.headers.get("x-forwarded-for");
+  const forwardedFor = headers.get("x-forwarded-for");
   if (forwardedFor) {
     const parts = forwardedFor.split(",").map((part) => part.trim());
     return parts[parts.length - 1];
