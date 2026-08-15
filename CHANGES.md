@@ -2,6 +2,36 @@
 
 ## Unreleased
 
+### 2026-08-16 — Schema + auth infrastructure (4a)
+Added `users`/`sessions` tables and a nullable `businesses.owner_id`
+column (first schema change since V1), plus `lib/auth/passwords.ts`
+(bcryptjs hash/verify) and `lib/auth/session.ts` (jose-based
+encrypt/decrypt, cookie set/delete, `createSession()`/`deleteSession()`
+backed by real DB session rows). No routes, no UI, and the existing
+Basic Auth gate is completely untouched — zero risk to the live admin
+section. Two migrations run against production, each confirmed
+separately beforehand: the initial additive schema, then a follow-up
+fixing the two new foreign keys' `ON DELETE` behavior.
+
+Reviewer sub-agent caught and this fixes: `decrypt()` was calling the
+`SESSION_SECRET`-dependent key lookup *inside* its try/catch, so a
+misconfigured or missing secret at runtime would silently look
+identical to "no session" instead of failing loudly — fixed by moving
+the key lookup outside the catch, matching how `encrypt()` already
+behaved. Also fixed: both new foreign keys defaulted to Postgres's
+`NO ACTION` rather than a deliberate choice — `sessions.user_id` now
+cascades on user delete (no orphaned session rows), and
+`businesses.owner_id` now sets to `NULL` on owner delete (a business
+with printed QR cards must never be deleted just because its owner
+account was).
+
+Verified end-to-end against real production data: password
+hash/verify correctness; `users`/`sessions` tables writable; session
+cookie is `HttpOnly`+`Secure` and the DB row it references matches;
+`deleteSession()` removes both the cookie and the DB row (not just the
+cookie); and, after the fix, `ON DELETE CASCADE`/`SET NULL` both
+verified directly by deleting real rows and checking the result.
+
 ### 2026-08-16 — Per-business detail page: chart + breakdown (3c)
 Added `app/admin/dashboard/[businessId]/page.tsx`: the Recharts
 time-series chart (7/30/90-day picker via `?days=`, default 30) and a

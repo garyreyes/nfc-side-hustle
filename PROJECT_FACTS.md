@@ -2,6 +2,26 @@
 
 Durable, project-specific decisions that should survive across sessions.
 
+- `SESSION_SECRET` (V4 auth) is generated and set in `.env.local` only
+  so far — it must also be added to Vercel's production env vars
+  before 4b's login flow is tested live, and definitely before 4c
+  ships (the actual cutover from Basic Auth). Not needed on Vercel
+  before that, since nothing live reaches `lib/auth/session.ts` yet.
+- `users.email` has a plain case-sensitive unique constraint with no
+  normalization at the schema level — `Owner@x.com` and `owner@x.com`
+  could exist as distinct rows. Low blast radius today (no self-serve
+  signup, admin manually creates each account), but whichever
+  sub-phase builds `features/auth/api.ts` (4b) should lowercase email
+  at both insert and lookup time rather than relying on schema-level
+  uniqueness alone.
+- V4's two new foreign keys have deliberate, different `ON DELETE`
+  behaviors, not Postgres's default: `sessions.user_id` cascades (a
+  deleted user's sessions are meaningless), `businesses.owner_id` sets
+  to `NULL` (a business with printed QR cards must never be deleted
+  just because its owner account was — matches the existing
+  orphan-avoidance lesson from 2b/2c). Any future FK added to `users`
+  should get the same explicit, deliberate treatment, not the
+  Postgres/Drizzle default.
 - The V3 admin dashboard's UI/UX is explicitly known to be rough
   (plain unstyled HTML tables, no design pass) — the owner flagged this
   after first viewing it live and deliberately deferred fixing it
