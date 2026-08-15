@@ -174,17 +174,73 @@ src/
 Everything under V1's structure (`app/r/[slug]`, `features/
 scan-tracking`, `lib/db`) is unchanged.
 
+## V3 Architecture — Dashboard, Analytics
+
+V3 is a pure read-layer over data that already exists — **no new
+entities, no schema changes.** `Business`, `Card`, `ScanEvent` already
+have everything needed (`scanned_at` for time-series, `cards.type` for
+the qr/nfc breakdown, `cards.business_id` for per-business grouping).
+
+**Scope: full analytics**, chosen deliberately over a simpler
+counts-only dashboard:
+- A time-series chart (daily scan counts) per business, with a
+  7/30/90-day range picker (defaults to 30)
+- A per-card-type (`qr` vs `nfc`) breakdown per business
+- An overview page listing every business with its total scan count,
+  drilling into a per-business detail page for the chart + breakdown
+
+**Test-data handling: cutoff date, not row filtering.** Roughly 56
+`scan_events` rows from V1/V2 manual verification are mixed into
+Saffron's real scan data with no way to distinguish them by inspection
+(see `PROJECT_FACTS.md`). Rather than guess which historical rows are
+real, every dashboard query filters `scanned_at >= DASHBOARD_DATA_START_AT`,
+a constant set to V3's actual ship date. Everything before that date
+(test or real) is excluded from all counts/charts; everything from that
+point on is real by construction, since there's no reason to
+hand-test the live Saffron QR again after this ships.
+
+**Tech stack addition: Recharts** for the time-series chart — React-
+native, lightweight, no separate backend. The chart component is a
+Client Component (SVG interactivity needs the browser); data fetching
+stays server-side, with a Server Component querying the DB and passing
+plain data down as props — same split the rest of the app already uses.
+
+**Security: reuses V2's Basic Auth gate unchanged.** `src/proxy.ts`'s
+matcher is `/admin/:path*`, which already covers any new route under
+`/admin/dashboard` with zero proxy changes. This is the lowest-risk
+phase so far — pure reads, no new write endpoints, no new secrets.
+
+Folder structure additions for V3:
+```
+src/
+  app/
+    admin/
+      dashboard/
+        page.tsx              # NEW — overview: every business + its total scan count
+        [businessId]/
+          page.tsx            # NEW — drill-down: time-series chart + qr/nfc breakdown for one business
+  features/
+    analytics/                 # NEW feature folder
+      api.ts                   # getBusinessScanTotals(), getScanTimeSeries(businessId, range), getScanBreakdownByCardType(businessId, range)
+      constants.ts              # DASHBOARD_DATA_START_AT
+      components/
+        ScanTimeSeriesChart.tsx # Recharts wrapper (Client Component)
+        CardTypeBreakdown.tsx   # qr vs nfc counts
+```
+Everything under V1/V2 (`app/r/[slug]`, `features/scan-tracking`,
+`features/business-management`, `lib/db`) is unchanged.
+
 ## Roadmap context
 
-This is Version 2 of 5 from the project roadmap:
+This is Version 3 of 5 from the project roadmap:
 1. V1 — one business, one QR code, redirect + log ✅
-2. **V2 (this doc)** — multiple businesses, routing (already works),
-   admin CRUD (Create + Read)
-3. V3 — dashboard, analytics
+2. V2 — multiple businesses, routing (already works), admin CRUD
+   (Create + Read) ✅
+3. **V3 (this doc)** — dashboard, analytics (full: time-series +
+   per-card breakdown), reusing V2's Basic Auth gate
 4. V4 — accounts, auth, roles
 5. V5 — multi-branch hierarchy
 
 The entity/folder choices from V1 were made specifically so V2–V5
-extend this structure rather than requiring a rebuild — V2 is the first
-proof of that: no schema change, no folder restructure, purely
-additive.
+extend this structure rather than requiring a rebuild — V3 continues
+that: no schema change, no folder restructure, purely additive.
