@@ -44,3 +44,11 @@ Durable, project-specific decisions that should survive across sessions.
   would otherwise let anyone bypass the rate limiter entirely. Found
   during `reviewer` sub-agent review of 1b, not something manual testing
   caught.
+- `src/lib/db/client.ts` must initialize the DB connection lazily (on
+  first query), not at module import time. `next build` imports every
+  route module — even dynamic, non-prerendered ones like `/r/[slug]` —
+  to statically collect its config, and CI intentionally has no
+  `DATABASE_URL`. An eager `throw` at import time (the original 1a
+  version) breaks the build in CI even though no request is ever
+  served. Caught by CI on 1b's PR, not by local testing (`.env.local`
+  masked it locally).
