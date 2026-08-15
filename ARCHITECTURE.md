@@ -116,14 +116,75 @@ scripts/
 - Infrastructure (DB client, future external API clients, auth config
   once V4 arrives) → `lib/`
 
+## V2 Architecture — Multiple Businesses, Admin CRUD
+
+V2's routing already works with zero code changes — `GET /r/[slug]`
+looks up the card by slug from the database, so it already supports any
+number of businesses. The actual gap V2 closes is **data entry**:
+`scripts/seed.ts` only makes sense for exactly one business.
+
+**No new entities or schema changes.** `Business`, `Card`, `ScanEvent`
+already model this correctly — V2 is purely a new way to create rows in
+tables that already exist.
+
+**Scope: Create + Read only.** Update and Delete are deliberately left
+out of V2. Per the existing "irreversible/high-blast-radius" rule below,
+deleting or meaningfully changing a live business's data (especially
+its `slug`) can break a card that's already printed and handed to a
+real business — that deserves its own careful design pass later, not a
+rushed addition here.
+
+**Interface: a real internal admin section**, not a CLI script (the V1
+pattern) and not Neon's dashboard directly — chosen specifically because
+the roadmap's stated learning goal for V2 is "APIs, CRUD," and because a
+non-technical co-founder should eventually be able to use this without
+needing terminal access. This means a real, reachable write-endpoint
+exists for the first time — which is exactly what the flat rule below
+was written to gate.
+
+**Protection: HTTP Basic Auth via Next.js middleware.** A single shared
+username/password (env vars `ADMIN_USERNAME` / `ADMIN_PASSWORD`, never
+in code or git) gates every route under `/admin/*`. This is not a full
+accounts system (no per-user identity, no audit trail of who did what)
+— that's still V4's job. It's a deliberate, explicit access decision,
+which is what the existing rule requires; it is not "no protection."
+
+Security baseline additions for V2:
+- `/admin/*` fails **closed**: if `ADMIN_USERNAME`/`ADMIN_PASSWORD` are
+  ever missing at runtime, middleware must deny all access, never fall
+  through to open.
+- Basic Auth credentials are checked server-side in middleware on every
+  request — never trusted from a client-supplied cookie or header claim.
+- The Create form's server-side handler validates input the same way
+  the V1 redirect route does — slug format checked, no blind inserts on
+  unvalidated input.
+
+Folder structure additions for V2:
+```
+src/
+  middleware.ts                    # NEW — Basic Auth gate for /admin/*
+  app/
+    admin/
+      businesses/
+        page.tsx                  # NEW — list businesses (Read) + form to add one (Create)
+  features/
+    business-management/          # NEW feature folder
+      api.ts                      # createBusiness(), createCard(), listBusinesses()
+```
+Everything under V1's structure (`app/r/[slug]`, `features/
+scan-tracking`, `lib/db`) is unchanged.
+
 ## Roadmap context
 
-This is Version 1 of 5 from the project roadmap:
-1. **V1 (this doc)** — one business, one QR code, redirect + log
-2. V2 — multiple businesses, routing, CRUD
+This is Version 2 of 5 from the project roadmap:
+1. V1 — one business, one QR code, redirect + log ✅
+2. **V2 (this doc)** — multiple businesses, routing (already works),
+   admin CRUD (Create + Read)
 3. V3 — dashboard, analytics
 4. V4 — accounts, auth, roles
 5. V5 — multi-branch hierarchy
 
-The entity/folder choices above were made specifically so V2–V5 extend
-this structure rather than requiring a rebuild.
+The entity/folder choices from V1 were made specifically so V2–V5
+extend this structure rather than requiring a rebuild — V2 is the first
+proof of that: no schema change, no folder restructure, purely
+additive.
