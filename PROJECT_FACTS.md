@@ -81,8 +81,9 @@ Durable, project-specific decisions that should survive across sessions.
   a real, usable `/admin/businesses` page, this is no longer a
   low-priority future task — production `/admin` will 401 for
   everyone, including with correct credentials, until this is added.
-  Also worth reconsidering the password's strength (`nfc-admin-2026`)
-  now that it protects a real write surface, not nothing.
+  Current value is `admin123`/`admin123` — deliberately simple (owner's
+  call, for ease of use over strength) — reconsider if/when the admin
+  page ever needs to resist a real attacker, not just casual snooping.
 - The `@neondatabase/serverless` driver sets Postgres SQLSTATE error
   codes as `.code` on the error it throws, but Drizzle wraps that in
   its own `DrizzleQueryError` via the standard `Error.cause` chain —
