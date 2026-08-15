@@ -22,8 +22,10 @@ Source: `ARCHITECTURE.md` (confirmed).
 
 ## Phase 2 — V2: Multiple businesses, routing, CRUD
 
-Not yet sub-phased — needs its own `app-architect` pass before Phase 1 is
-broken down further. Source: `AI_Engineering_and_NFC_Roadmap.md` §10.
+Architecture confirmed (see `ARCHITECTURE.md` § V2) — routing already
+works with no changes; scope is admin CRUD (Create + Read only) behind
+HTTP Basic Auth. Not yet sub-phased into 2a/2b/etc. — that's
+`roadmap-planner`'s job, next. Source: `AI_Engineering_and_NFC_Roadmap.md` §10.
 
 ## Phase 3 — V3: Dashboard, analytics
 
