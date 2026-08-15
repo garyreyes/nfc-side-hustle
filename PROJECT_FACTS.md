@@ -110,6 +110,27 @@ Durable, project-specific decisions that should survive across sessions.
   creates a business and a card together must do the same
   pre-validation — don't rely on the DB constraint alone to protect
   against ordinary user error, only against genuine races.
+- `src/features/analytics/constants.ts`'s `DASHBOARD_DATA_START_AT` is a
+  deliberate placeholder (`2100-01-01`) as of 3a — it must be set to the
+  real V3 launch date/time in sub-phase 3c, right before that final PR
+  merges, once all manual verification traffic for 3a/3b/3c is done. If
+  this is forgotten, the shipped dashboard will show zero scans forever
+  (every query filters `scannedAt >= DASHBOARD_DATA_START_AT`, and
+  nothing will ever exceed a year-2100 cutoff). This is the intentional
+  mechanism for excluding V1/V2/V3 test scan_events from the dashboard
+  without needing to identify which historical rows were real.
+- Analytics queries bucket by **Asia/Manila calendar day**, not UTC —
+  matches what a Manila-based business owner expects from "today's
+  scans." Any future analytics query touching `scanEvents.scannedAt`
+  should follow the same convention (see `getManilaDateString`/
+  `buildDayRange` in `features/analytics/api.ts`), not default to
+  Postgres's UTC day boundary.
+- `getScanTimeSeries()`/`getScanBreakdownByCardType()` return `null` for
+  a missing or malformed `businessId` (checked via `businessExists()`,
+  which validates UUID format before ever querying Postgres). 3c's
+  `/admin/dashboard/[businessId]` route must treat a `null` return as a
+  404, not render an empty/zeroed dashboard — a bad or stale link should
+  look broken, not like a real business with no traffic.
 - All test businesses/cards from 2b/2c verification ("Test Cafe",
   "Real New Business", "Duplicate Slug Test") were manually deleted
   from production Neon via the table editor (owner did this directly —

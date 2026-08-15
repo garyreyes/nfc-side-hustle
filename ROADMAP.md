@@ -51,7 +51,7 @@ reusing V2's Basic Auth gate unchanged. Test-data contamination from
 V1/V2 verification handled via a `DASHBOARD_DATA_START_AT` cutoff
 constant rather than row filtering.
 
-- [ ] **3a. Analytics query layer**
+- [x] **3a. Analytics query layer** — done
       `features/analytics/api.ts` + `constants.ts` —
       `getBusinessScanTotals()`, `getScanTimeSeries(businessId, range)`,
       `getScanBreakdownByCardType(businessId, range)`, plus the

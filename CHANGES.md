@@ -2,6 +2,33 @@
 
 ## Unreleased
 
+### 2026-08-16 — Analytics query layer (3a)
+Added `features/analytics/api.ts` + `constants.ts`: `getBusinessScanTotals()`,
+`getScanTimeSeries()`, `getScanBreakdownByCardType()` — read-only queries
+behind 3b/3c's dashboard, no UI yet. Day-bucketing uses Asia/Manila
+calendar days (not UTC), zero-filled so charts never show a misleading
+gap. All three default to a `DASHBOARD_DATA_START_AT` cutoff constant,
+currently a deliberate far-future placeholder so no test/dev traffic
+counts as real until it's set to the actual V3 launch date in 3c.
+
+Reviewer sub-agent caught and this fixes: `getScanTimeSeries()` and
+`getScanBreakdownByCardType()` had no way to distinguish "business
+doesn't exist" from "business exists with zero scans" (both produced an
+identical all-zero result) — now both return `null` for a missing or
+malformed `businessId`, so 3c's `/admin/dashboard/[businessId]` route
+can 404 correctly instead of rendering an empty dashboard for a bad
+link. Also fixed: a malformed (non-UUID) `businessId` would have thrown
+an unhandled Postgres error rather than failing gracefully; the
+qr/nfc breakdown's type list was hand-duplicated from the schema's enum
+instead of derived from it.
+
+Verified end-to-end against the real production database (temporarily
+removing `server-only` to run via a throwaway script): real cutoff
+placeholder returns all zeros as intended, an early test cutoff
+correctly surfaces the real 56 scans split across two days with correct
+zero-filling, and both a nonexistent well-formed UUID and a malformed
+`businessId` return `null` instead of throwing.
+
 ### 2026-08-15 — Database schema, Neon connection, and seed (1a)
 Added the Drizzle schema for Business/Card/ScanEvent, connected it to
 the real Neon database, ran the first migration, and seeded the real
