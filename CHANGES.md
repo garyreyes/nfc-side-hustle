@@ -2,6 +2,40 @@
 
 ## Unreleased
 
+### 2026-08-16 — Per-business detail page: chart + breakdown (3c)
+Added `app/admin/dashboard/[businessId]/page.tsx`: the Recharts
+time-series chart (7/30/90-day picker via `?days=`, default 30) and a
+qr/nfc breakdown table, wired to 3a's `getScanTimeSeries()` and
+`getScanBreakdownByCardType()`. A missing or malformed `businessId`
+correctly 404s via `notFound()`. New dependency: `recharts`.
+
+Reviewer sub-agent's findings, all fixed: `ARCHITECTURE.md` documented
+a `CardTypeBreakdown.tsx` component that was never actually built (the
+breakdown ended up as a plain inlined table, matching the rest of
+`/admin/*`'s table convention — doc updated to match reality instead of
+building an unnecessary extraction); the chart had no heading or
+accessible alternative (added an `<h2>` and Recharts' `accessibilityLayer`
+prop); the selected date-range link had no semantic "current" indicator
+(added `aria-current`); `searchParams.days` was typed as `string`
+when Next's actual runtime shape allows `string[]` (widened the type
+and normalized explicitly, rather than relying on `NaN` failing safe by
+accident). Also flagged and confirmed correct: one internal link had to
+use `next/link`'s `<Link>` instead of the codebase's usual plain `<a>`,
+because of a real quirk in Next's `no-html-link-for-pages` ESLint rule
+(its dynamic-segment regex for this same route also matches the
+empty-segment case) — traced through the rule's source to confirm it's
+a rule quirk, not a routing bug, and left an explanatory comment.
+
+Verified end-to-end against the real dev server and real Basic Auth:
+no-auth → 401; real business + default/`?days=7` → 200 with all 7
+Manila-local days zero-filled correctly and both qr/nfc rows rendering;
+a well-formed nonexistent UUID and a malformed `businessId` both → 404.
+Confirmed via the build route table that the new route renders
+dynamically (`ƒ`), not statically prerendered.
+
+**V3 (Phase 3) is complete once `DASHBOARD_DATA_START_AT` is set to its
+real value and this PR merges** — see the follow-up entry below.
+
 ### 2026-08-16 — Dashboard overview page (3b)
 Added `app/admin/dashboard/page.tsx`: lists every business with its
 total scan count (via 3a's `getBusinessScanTotals()`), linking to each

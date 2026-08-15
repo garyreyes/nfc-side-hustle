@@ -225,8 +225,11 @@ src/
       constants.ts              # DASHBOARD_DATA_START_AT
       components/
         ScanTimeSeriesChart.tsx # Recharts wrapper (Client Component)
-        CardTypeBreakdown.tsx   # qr vs nfc counts
 ```
+The qr/nfc breakdown ended up as a plain HTML table inlined directly in
+`app/admin/dashboard/[businessId]/page.tsx` rather than its own
+component — a 2-category count table didn't warrant extraction, and it
+matches the table convention already used elsewhere in `/admin/*`.
 Everything under V1/V2 (`app/r/[slug]`, `features/scan-tracking`,
 `features/business-management`, `lib/db`) is unchanged.
 
