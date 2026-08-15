@@ -52,3 +52,19 @@ Durable, project-specific decisions that should survive across sessions.
   version) breaks the build in CI even though no request is ever
   served. Caught by CI on 1b's PR, not by local testing (`.env.local`
   masked it locally).
+- V1 is deployed on Vercel's free `nfc-side-hustle.vercel.app`
+  subdomain (owner doesn't own a custom domain yet). `DATABASE_URL` is
+  wired via Neon's official Vercel integration, not manually copied.
+- `scripts/generate-qr.ts` bakes a base URL into every printed QR code
+  — a physical artifact that can't be recalled once handed to a
+  business. It defaults to the current `.vercel.app` URL but reads
+  `QR_BASE_URL` if set, so switching to a custom domain later is a
+  config change, not a code edit. It also refuses to generate a QR
+  unless the target URL actually resolves (302) first, to catch typos
+  before printing, not after.
+- The real Saffron QR code is live: `qr-codes/saffron.png` (gitignored,
+  regenerate with `npm run qr:generate -- saffron`), encoding
+  `https://nfc-side-hustle.vercel.app/r/saffron`. `scan_events` for
+  this card currently includes ~49 rows of test/dev traffic mixed in
+  with (eventually) real customer scans — not yet cleared as of V1
+  completion; revisit before V3's dashboard makes this visible.
