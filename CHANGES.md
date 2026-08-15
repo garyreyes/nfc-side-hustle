@@ -2,6 +2,32 @@
 
 ## Unreleased
 
+### 2026-08-16 — Dashboard overview page (3b)
+Added `app/admin/dashboard/page.tsx`: lists every business with its
+total scan count (via 3a's `getBusinessScanTotals()`), linking to each
+business's detail page (`/admin/dashboard/[businessId]`, built next in
+3c — those links 404 until then, an expected short-lived state). Same
+plain-inline-styled-HTML Server Component pattern as `/admin/businesses`,
+gated by the existing Basic Auth proxy with zero proxy changes needed.
+
+Caught and fixed before review: this page had no dynamic route segment
+or `searchParams`, so Next.js was silently statically prerendering it at
+build time — confirmed via the build route table (`○` instead of `ƒ`).
+For a live-data page this both breaks the CI build (no `DATABASE_URL` at
+build time) and would freeze scan counts at deploy-time values in
+production. Fixed with `export const dynamic = "force-dynamic";`,
+verified by rebuilding with `.env.local` temporarily hidden.
+
+Reviewer sub-agent's only finding: an empty `<th>` (the actions column
+header) had no `scope` or accessible label — fixed with `scope="col"`
+on all three headers and a visually-hidden "Actions" label.
+
+Verified end-to-end against the real dev server and real Basic Auth
+credentials: no-auth request returns 401, correct-auth request returns
+200 showing the real Saffron business (0 total scans, expected — the
+3a cutoff constant is still a placeholder) with a correctly-linked
+"View details" URL.
+
 ### 2026-08-16 — Analytics query layer (3a)
 Added `features/analytics/api.ts` + `constants.ts`: `getBusinessScanTotals()`,
 `getScanTimeSeries()`, `getScanBreakdownByCardType()` — read-only queries

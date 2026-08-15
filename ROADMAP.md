@@ -57,7 +57,7 @@ constant rather than row filtering.
       `getScanBreakdownByCardType(businessId, range)`, plus the
       `DASHBOARD_DATA_START_AT` cutoff constant. No UI — testable
       independently, same pattern as 2b.
-- [ ] **3b. Dashboard overview page**
+- [x] **3b. Dashboard overview page** — done
       `app/admin/dashboard/page.tsx` — lists every business with its
       total scan count (post-cutoff), links into each business's
       detail page. Wires into 3a's `getBusinessScanTotals()`.
