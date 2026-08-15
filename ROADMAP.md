@@ -77,7 +77,7 @@ DAL-based authorization replacing V2's Basic Auth entirely. First
 schema change since V1. `security-baseline` pass already run and
 folded into the architecture doc and the sub-phases below.
 
-- [ ] **4a. Schema + auth infrastructure**
+- [x] **4a. Schema + auth infrastructure** — done
       `User`/`Session` tables, `Business.ownerId` (nullable) migration,
       `lib/auth/passwords.ts` (bcryptjs), `lib/auth/session.ts`
       (encrypt/decrypt, cookie set/delete, createSession/

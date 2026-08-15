@@ -8,6 +8,20 @@
       "when": 1786805429871,
       "tag": "0000_certain_nighthawk",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1786826584027,
+      "tag": "0001_little_jubilee",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1786827242559,
+      "tag": "0002_magical_boomer",
+      "breakpoints": true
     }
   ]
 }
