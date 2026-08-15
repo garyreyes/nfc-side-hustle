@@ -33,8 +33,15 @@ a well-formed nonexistent UUID and a malformed `businessId` both → 404.
 Confirmed via the build route table that the new route renders
 dynamically (`ƒ`), not statically prerendered.
 
-**V3 (Phase 3) is complete once `DASHBOARD_DATA_START_AT` is set to its
-real value and this PR merges** — see the follow-up entry below.
+### 2026-08-16 — Set real dashboard launch cutoff
+`DASHBOARD_DATA_START_AT` set to `2026-08-15T20:11:15Z`, confirmed with
+the owner — the real cutoff excluding all V1/V2/V3 test `scan_events`
+from the dashboard going forward. No manual testing during 3a/3b/3c hit
+the live production redirect route, so nothing real is excluded by this.
+
+**V3 (Phase 3) is complete**: dashboard overview + per-business
+time-series chart + qr/nfc breakdown, all behind the existing Basic
+Auth gate, showing only real post-launch scan data.
 
 ### 2026-08-16 — Dashboard overview page (3b)
 Added `app/admin/dashboard/page.tsx`: lists every business with its

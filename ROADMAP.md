@@ -61,11 +61,13 @@ constant rather than row filtering.
       `app/admin/dashboard/page.tsx` — lists every business with its
       total scan count (post-cutoff), links into each business's
       detail page. Wires into 3a's `getBusinessScanTotals()`.
-- [ ] **3c. Per-business detail page: chart + breakdown**
+- [x] **3c. Per-business detail page: chart + breakdown** — done
       `app/admin/dashboard/[businessId]/page.tsx` — Recharts
       time-series chart (7/30/90-day range picker, defaults to 30) and
       the qr/nfc card-type breakdown, wired to 3a's remaining two
-      queries. Last sub-phase — V3 complete once this ships.
+      queries.
+
+**Phase 3 (V3) complete.**
 
 ## Phase 4 — V4: Accounts, auth, roles
 

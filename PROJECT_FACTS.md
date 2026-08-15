@@ -125,15 +125,14 @@ Durable, project-specific decisions that should survive across sessions.
   `generateStaticParams` is already rendered on-demand, not
   prerendered — but double-check the build route table for `ƒ` on any
   new data-fetching page regardless, since this is easy to miss.
-- `src/features/analytics/constants.ts`'s `DASHBOARD_DATA_START_AT` is a
-  deliberate placeholder (`2100-01-01`) as of 3a — it must be set to the
-  real V3 launch date/time in sub-phase 3c, right before that final PR
-  merges, once all manual verification traffic for 3a/3b/3c is done. If
-  this is forgotten, the shipped dashboard will show zero scans forever
-  (every query filters `scannedAt >= DASHBOARD_DATA_START_AT`, and
-  nothing will ever exceed a year-2100 cutoff). This is the intentional
-  mechanism for excluding V1/V2/V3 test scan_events from the dashboard
-  without needing to identify which historical rows were real.
+- (Resolved — see below) `src/features/analytics/constants.ts`'s
+  `DASHBOARD_DATA_START_AT` is now set to its real value,
+  `2026-08-15T20:11:15Z` (3c launch), confirmed with the owner. Every
+  dashboard query excludes scans before this instant — the mechanism
+  that keeps V1/V2/V3 test `scan_events` from ever surfacing as real,
+  without needing to identify which historical rows were test traffic.
+  No manual testing during 3a/3b/3c hit the live production redirect
+  route, so nothing real was wrongly excluded by this cutoff.
 - Analytics queries bucket by **Asia/Manila calendar day**, not UTC —
   matches what a Manila-based business owner expects from "today's
   scans." Any future analytics query touching `scanEvents.scannedAt`
