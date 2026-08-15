@@ -45,8 +45,27 @@ HTTP Basic Auth.
 
 ## Phase 3 — V3: Dashboard, analytics
 
-Not yet sub-phased — needs its own `app-architect` pass. Source:
-`AI_Engineering_and_NFC_Roadmap.md` §10.
+Architecture confirmed (see `ARCHITECTURE.md` § V3) — no schema
+changes; full scope (time-series chart + per-card-type breakdown),
+reusing V2's Basic Auth gate unchanged. Test-data contamination from
+V1/V2 verification handled via a `DASHBOARD_DATA_START_AT` cutoff
+constant rather than row filtering.
+
+- [ ] **3a. Analytics query layer**
+      `features/analytics/api.ts` + `constants.ts` —
+      `getBusinessScanTotals()`, `getScanTimeSeries(businessId, range)`,
+      `getScanBreakdownByCardType(businessId, range)`, plus the
+      `DASHBOARD_DATA_START_AT` cutoff constant. No UI — testable
+      independently, same pattern as 2b.
+- [ ] **3b. Dashboard overview page**
+      `app/admin/dashboard/page.tsx` — lists every business with its
+      total scan count (post-cutoff), links into each business's
+      detail page. Wires into 3a's `getBusinessScanTotals()`.
+- [ ] **3c. Per-business detail page: chart + breakdown**
+      `app/admin/dashboard/[businessId]/page.tsx` — Recharts
+      time-series chart (7/30/90-day range picker, defaults to 30) and
+      the qr/nfc card-type breakdown, wired to 3a's remaining two
+      queries. Last sub-phase — V3 complete once this ships.
 
 ## Phase 4 — V4: Accounts, auth, roles
 
