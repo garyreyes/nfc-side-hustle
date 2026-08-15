@@ -1,10 +1,10 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import QRCode from "qrcode";
+import { isValidSlug, SLUG_PATTERN } from "../src/lib/slug";
 
 const BASE_URL = process.env.QR_BASE_URL ?? "https://nfc-side-hustle.vercel.app";
 const OUT_DIR = path.join(import.meta.dirname, "..", "qr-codes");
-const SLUG_PATTERN = /^[a-z0-9-]+$/;
 
 async function verifySlugResolves(url: string) {
   const response = await fetch(url, { redirect: "manual" });
@@ -17,7 +17,7 @@ async function verifySlugResolves(url: string) {
 }
 
 async function generateQr(slug: string) {
-  if (!SLUG_PATTERN.test(slug)) {
+  if (!isValidSlug(slug)) {
     throw new Error(`Invalid slug "${slug}" — must match ${SLUG_PATTERN}`);
   }
 

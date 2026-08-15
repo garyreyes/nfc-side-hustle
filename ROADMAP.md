@@ -32,7 +32,7 @@ HTTP Basic Auth.
       verified before any admin route exists. Verify: no credentials →
       401, correct credentials → passes through, missing env vars →
       fails closed.
-- [ ] **2b. Business/Card creation + listing logic** — not started
+- [x] **2b. Business/Card creation + listing logic** — done
       `features/business-management/api.ts` — `createBusiness()`,
       `createCard()`, `listBusinesses()`, with server-side validation
       (slug format, required fields). Testable independently of any UI.

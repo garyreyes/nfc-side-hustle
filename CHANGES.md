@@ -17,7 +17,27 @@ of a crash if a business's review URL is ever malformed. Verified
 end-to-end against the real dev server and real seeded Neon data
 (valid slug, unknown slug, and rate-limit burst all behaved correctly).
 
-### 2026-08-16 — Basic Auth proxy for /admin (2a)
+### 2026-08-16 — Business/card creation + listing logic (2b)
+Added `features/business-management/api.ts`: `createBusiness()`,
+`createCard()`, `listBusinesses()` — no UI yet, just the logic 2c's
+admin form will call. Slug validation extracted into shared
+`lib/slug.ts` (was duplicated in `scripts/generate-qr.ts`).
+
+Reviewer sub-agent caught and this fixes: a TOCTOU race on slug
+uniqueness (select-then-insert had a window for two concurrent
+requests to both pass the check), `createCard()` not validating that
+`businessId` actually exists (raw FK-violation error would've leaked
+through), and `listBusinesses()` silently duplicating a business's row
+once per card instead of grouping — now fixed by catching Postgres
+constraint violations (via drizzle's `Error.cause` chain) and
+translating them to clean messages, and by grouping `listBusinesses()`
+results into one entry per business with its cards nested.
+
+Verified end-to-end against the real database (temporarily removing
+`server-only` to run via a throwaway script, since no UI exists yet to
+call this through) — including creating a real second business
+(Saffron is no longer the only one in the database) and giving it a
+second card to confirm the multi-card grouping fix.
 Added `src/proxy.ts` (Next.js 16's replacement for `middleware.ts`),
 gating every route under `/admin/*` with HTTP Basic Auth checked
 against `ADMIN_USERNAME`/`ADMIN_PASSWORD`. Fails closed if those env

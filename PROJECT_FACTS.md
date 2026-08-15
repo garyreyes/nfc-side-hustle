@@ -81,3 +81,22 @@ Durable, project-specific decisions that should survive across sessions.
   ships an actual `/admin` page (proxy fails closed either way), but
   must be added to Vercel before/alongside 2c or production `/admin`
   will 401 for everyone, including with correct credentials.
+- The `@neondatabase/serverless` driver sets Postgres SQLSTATE error
+  codes as `.code` on the error it throws, but Drizzle wraps that in
+  its own `DrizzleQueryError` via the standard `Error.cause` chain —
+  the actual Postgres error code is at `err.cause.code`, not
+  `err.code`. Any future code catching DB constraint violations needs
+  to check the `.cause`, confirmed the hard way when the first attempt
+  at this in `business-management/api.ts` silently didn't work.
+- Real test data now lives in production Neon alongside Saffron: a
+  "Test Cafe (2b verification)" business with two cards (slugs
+  `test-cafe-2b-verify` and `test-cafe-2b-verify-nfc`). Left in place
+  deliberately (owner's call) — proves multiple businesses genuinely
+  work, but should be cleaned up before this data is ever shown to a
+  real user (e.g. once V3's dashboard exists).
+- V1's `Business`/`Card`/`ScanEvent` schema allows a business to have
+  more than one card (no unique constraint on `cards.businessId`) —
+  confirmed this is intentional (a business could eventually have both
+  a `qr` card and an `nfc` card once NFC cards arrive), so any code
+  that lists businesses must group by business, not assume one row per
+  business.
