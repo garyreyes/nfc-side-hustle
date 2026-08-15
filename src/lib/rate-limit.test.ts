@@ -1,4 +1,3 @@
-import { NextRequest } from "next/server";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { getClientIp, isRateLimited } from "./rate-limit";
 
@@ -49,21 +48,17 @@ describe("isRateLimited", () => {
 
 describe("getClientIp", () => {
   it("prefers x-real-ip when present", () => {
-    const request = new NextRequest("http://localhost/r/test", {
-      headers: { "x-real-ip": "1.2.3.4", "x-forwarded-for": "9.9.9.9, 1.2.3.4" },
-    });
-    expect(getClientIp(request)).toBe("1.2.3.4");
+    const headers = new Headers({ "x-real-ip": "1.2.3.4", "x-forwarded-for": "9.9.9.9, 1.2.3.4" });
+    expect(getClientIp(headers)).toBe("1.2.3.4");
   });
 
   it("falls back to the last x-forwarded-for entry, not the first", () => {
-    const request = new NextRequest("http://localhost/r/test", {
-      headers: { "x-forwarded-for": "spoofed-by-client, 5.6.7.8" },
-    });
-    expect(getClientIp(request)).toBe("5.6.7.8");
+    const headers = new Headers({ "x-forwarded-for": "spoofed-by-client, 5.6.7.8" });
+    expect(getClientIp(headers)).toBe("5.6.7.8");
   });
 
   it("falls back to 'unknown' when neither header is present", () => {
-    const request = new NextRequest("http://localhost/r/test");
-    expect(getClientIp(request)).toBe("unknown");
+    const headers = new Headers();
+    expect(getClientIp(headers)).toBe("unknown");
   });
 });

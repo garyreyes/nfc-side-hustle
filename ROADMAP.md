@@ -84,7 +84,7 @@ folded into the architecture doc and the sub-phases below.
       deleteSession). No routes, no UI — testable independently via
       scripts, same pattern as 1a/2b. Existing Basic Auth gate
       completely untouched — zero risk to the live admin section.
-- [ ] **4b. Login/logout flow**
+- [x] **4b. Login/logout flow** — done
       `features/auth/api.ts` (credential check, timing-safe/generic
       errors, rate-limited via existing `lib/rate-limit.ts`),
       `features/auth/actions.ts` (loginAction, logoutAction as POST

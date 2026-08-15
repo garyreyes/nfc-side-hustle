@@ -6,7 +6,7 @@ export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ slug: string }> }
 ) {
-  const ip = getClientIp(request);
+  const ip = getClientIp(request.headers);
 
   if (isRateLimited(ip)) {
     return new NextResponse("Too many requests", { status: 429 });
