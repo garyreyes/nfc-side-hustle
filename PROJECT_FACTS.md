@@ -76,14 +76,12 @@ Durable, project-specific decisions that should survive across sessions.
   needing them (e.g. `timingSafeEqual` for auth) must use `proxy.ts`,
   not `middleware.ts`, or it'll silently warn/break. See
   `node_modules/next/dist/docs/.../file-conventions/proxy.md`.
-- `ADMIN_USERNAME`/`ADMIN_PASSWORD` are still only set in `.env.local`,
-  **not yet in Vercel's production env vars**. Now that 2c has shipped
-  a real, usable `/admin/businesses` page, this is no longer a
-  low-priority future task — production `/admin` will 401 for
-  everyone, including with correct credentials, until this is added.
-  Current value is `admin123`/`admin123` — deliberately simple (owner's
-  call, for ease of use over strength) — reconsider if/when the admin
-  page ever needs to resist a real attacker, not just casual snooping.
+- `ADMIN_USERNAME`/`ADMIN_PASSWORD` are set in both `.env.local` and
+  Vercel's production env vars (confirmed working live at
+  `nfc-side-hustle.vercel.app/admin/businesses`). Current value is
+  `admin123`/`admin123` — deliberately simple (owner's call, for ease
+  of use over strength) — reconsider if/when the admin page ever needs
+  to resist a real attacker, not just casual snooping.
 - The `@neondatabase/serverless` driver sets Postgres SQLSTATE error
   codes as `.code` on the error it throws, but Drizzle wraps that in
   its own `DrizzleQueryError` via the standard `Error.cause` chain —
