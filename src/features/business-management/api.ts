@@ -6,6 +6,8 @@ import { isValidSlug } from "@/lib/slug";
 
 export class BusinessManagementError extends Error {}
 
+const MAX_NAME_LENGTH = 200;
+
 // Postgres SQLSTATE codes the @neondatabase/serverless driver sets as
 // `.code` on the DatabaseError it throws. Drizzle wraps that in its own
 // DrizzleQueryError via the standard `Error.cause` chain, so the code we
@@ -25,6 +27,9 @@ export async function createBusiness(input: { name: string; googleReviewUrl: str
   if (!name) {
     throw new BusinessManagementError("Business name is required.");
   }
+  if (name.length > MAX_NAME_LENGTH) {
+    throw new BusinessManagementError(`Business name must be ${MAX_NAME_LENGTH} characters or fewer.`);
+  }
 
   try {
     new URL(googleReviewUrl);
@@ -34,6 +39,11 @@ export async function createBusiness(input: { name: string; googleReviewUrl: str
 
   const [business] = await db.insert(businesses).values({ name, googleReviewUrl }).returning();
   return business;
+}
+
+export async function isSlugTaken(slug: string): Promise<boolean> {
+  const [existing] = await db.select().from(cards).where(eq(cards.slug, slug));
+  return !!existing;
 }
 
 export async function createCard(input: {
@@ -55,6 +65,11 @@ export async function createCard(input: {
   // access is a single shared admin password with no per-user session
   // isolation). Both the slug uniqueness and businessId foreign-key
   // constraints are enforced atomically by Postgres on the insert itself.
+  // Callers that create a business alongside a card (e.g. the admin form's
+  // Server Action) should still pre-check isSlugTaken() before creating
+  // the business, so an ordinary duplicate-slug typo never leaves an
+  // orphan business row — this catch is the last-resort safety net for
+  // the genuinely rare case of two concurrent submissions racing.
   try {
     const [card] = await db
       .insert(cards)
