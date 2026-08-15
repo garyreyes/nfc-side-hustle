@@ -2,6 +2,12 @@
 
 Durable, project-specific decisions that should survive across sessions.
 
+- The V3 admin dashboard's UI/UX is explicitly known to be rough
+  (plain unstyled HTML tables, no design pass) — the owner flagged this
+  after first viewing it live and deliberately deferred fixing it
+  rather than blocking on it. Revisit with a real UI/UX pass later
+  (candidate for `/impeccable` if/when this project adopts it); not
+  scheduled against a specific version yet.
 - Database is **Neon**, not Supabase — free-tier Supabase capacity is
   already used by the owner's other projects.
 - Query layer is **Drizzle**, chosen over Prisma specifically so SQL
