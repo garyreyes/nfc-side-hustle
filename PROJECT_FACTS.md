@@ -89,12 +89,10 @@ Durable, project-specific decisions that should survive across sessions.
   `err.code`. Any future code catching DB constraint violations needs
   to check the `.cause`, confirmed the hard way when the first attempt
   at this in `business-management/api.ts` silently didn't work.
-- Real test data now lives in production Neon alongside Saffron: a
-  "Test Cafe (2b verification)" business with two cards (slugs
-  `test-cafe-2b-verify` and `test-cafe-2b-verify-nfc`). Left in place
-  deliberately (owner's call) — proves multiple businesses genuinely
-  work, but should be cleaned up before this data is ever shown to a
-  real user (e.g. once V3's dashboard exists).
+- (Resolved — see below) Test businesses/cards created while verifying
+  2b/2c were manually cleaned up via Neon's table editor. `businesses`
+  and `cards` now contain exactly one row each: the real Saffron
+  business and its `saffron` card.
 - V1's `Business`/`Card`/`ScanEvent` schema allows a business to have
   more than one card (no unique constraint on `cards.businessId`) —
   confirmed this is intentional (a business could eventually have both
@@ -112,10 +110,12 @@ Durable, project-specific decisions that should survive across sessions.
   creates a business and a card together must do the same
   pre-validation — don't rely on the DB constraint alone to protect
   against ordinary user error, only against genuine races.
-- More test data accumulated in production Neon during 2c's
-  verification, alongside Saffron and the "Test Cafe" business from
-  2b: "Real New Business" (slug `real-new-biz`) and a "Duplicate Slug
-  Test" business with no card (the orphan case, left in place
-  deliberately to prove it renders correctly as "(no cards)" rather
-  than vanishing). All of this test data should be cleaned up before
-  V3's dashboard makes it visible to a real user.
+- All test businesses/cards from 2b/2c verification ("Test Cafe",
+  "Real New Business", "Duplicate Slug Test") were manually deleted
+  from production Neon via the table editor (owner did this directly —
+  cards deleted before their parent business, due to the FK
+  constraint). `businesses`/`cards` are clean now. `scan_events` still
+  has ~56 test rows mixed in with Saffron's card (test scans from
+  1b/1c/2c verification, indistinguishable from real ones by looking
+  at them) — deliberately left alone rather than risk deleting a real
+  scan; harmless until V3's dashboard exists.
