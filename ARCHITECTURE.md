@@ -162,7 +162,7 @@ Security baseline additions for V2:
 Folder structure additions for V2:
 ```
 src/
-  middleware.ts                    # NEW — Basic Auth gate for /admin/*
+  proxy.ts                         # NEW — Basic Auth gate for /admin/* (Next.js 16 renamed middleware.ts → proxy.ts)
   app/
     admin/
       businesses/

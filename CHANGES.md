@@ -17,6 +17,21 @@ of a crash if a business's review URL is ever malformed. Verified
 end-to-end against the real dev server and real seeded Neon data
 (valid slug, unknown slug, and rate-limit burst all behaved correctly).
 
+### 2026-08-16 — Basic Auth proxy for /admin (2a)
+Added `src/proxy.ts` (Next.js 16's replacement for `middleware.ts`),
+gating every route under `/admin/*` with HTTP Basic Auth checked
+against `ADMIN_USERNAME`/`ADMIN_PASSWORD`. Fails closed if those env
+vars are missing. Reviewer sub-agent caught three real issues, all
+fixed: a shared `Response` singleton reused across concurrent requests
+(risked a locked/empty body under load), a `||` short-circuit that
+leaked which credential was wrong via response timing (defeated the
+point of using `timingSafeEqual`), and a case-sensitive Basic-scheme
+check that rejected RFC-compliant lowercase `basic` headers. Verified
+against the real dev server: no/wrong/correct credentials, missing env
+vars (fails closed even with an otherwise-correct header), 10
+concurrent unauthenticated requests, and that the public `/r/[slug]`
+route is completely unaffected.
+
 ### 2026-08-16 — Deploy + QR generation (1c)
 Deployed to Vercel on the free `nfc-side-hustle.vercel.app` subdomain,
 connected to the real Neon database via Neon's official Vercel
