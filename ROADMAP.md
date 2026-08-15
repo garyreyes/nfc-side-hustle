@@ -26,8 +26,9 @@ Architecture confirmed (see `ARCHITECTURE.md` § V2) — routing already
 works with no changes; scope is admin CRUD (Create + Read only) behind
 HTTP Basic Auth.
 
-- [ ] **2a. Basic Auth middleware** — not started
-      `middleware.ts` gating everything under `/admin/*`, built and
+- [x] **2a. Basic Auth middleware** — done
+      `proxy.ts` (Next.js 16 renamed `middleware.ts` → `proxy.ts`, same
+      functionality) gating everything under `/admin/*`, built and
       verified before any admin route exists. Verify: no credentials →
       401, correct credentials → passes through, missing env vars →
       fails closed.

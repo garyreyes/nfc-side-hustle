@@ -68,3 +68,16 @@ Durable, project-specific decisions that should survive across sessions.
   this card currently includes ~49 rows of test/dev traffic mixed in
   with (eventually) real customer scans — not yet cleared as of V1
   completion; revisit before V3's dashboard makes this visible.
+- Next.js 16 renamed `middleware.ts` → `proxy.ts` (same functionality,
+  new file/function name) — and critically, **Proxy defaults to the
+  Node.js runtime**, while the deprecated `middleware.ts` convention
+  still runs under the old Edge Runtime default. This matters because
+  Edge Runtime doesn't support Node built-ins like `node:crypto` — code
+  needing them (e.g. `timingSafeEqual` for auth) must use `proxy.ts`,
+  not `middleware.ts`, or it'll silently warn/break. See
+  `node_modules/next/dist/docs/.../file-conventions/proxy.md`.
+- `ADMIN_USERNAME`/`ADMIN_PASSWORD` are only set in `.env.local` so
+  far, not yet in Vercel's production env vars — harmless until 2c
+  ships an actual `/admin` page (proxy fails closed either way), but
+  must be added to Vercel before/alongside 2c or production `/admin`
+  will 401 for everyone, including with correct credentials.
