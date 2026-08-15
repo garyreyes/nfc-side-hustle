@@ -6,7 +6,7 @@ Tracks status per sub-phase. Each sub-phase = one `feature-planner` build-loop p
 
 Source: `ARCHITECTURE.md` (confirmed).
 
-- [ ] **1a. Database schema + Neon connection + seed** — not started
+- [x] **1a. Database schema + Neon connection + seed** — done
       Drizzle schema for Business/Card/ScanEvent, connect to Neon, run
       first migration, seed script inserting the one Business + one Card
       row.
