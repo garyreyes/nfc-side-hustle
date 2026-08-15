@@ -76,11 +76,13 @@ Durable, project-specific decisions that should survive across sessions.
   needing them (e.g. `timingSafeEqual` for auth) must use `proxy.ts`,
   not `middleware.ts`, or it'll silently warn/break. See
   `node_modules/next/dist/docs/.../file-conventions/proxy.md`.
-- `ADMIN_USERNAME`/`ADMIN_PASSWORD` are only set in `.env.local` so
-  far, not yet in Vercel's production env vars — harmless until 2c
-  ships an actual `/admin` page (proxy fails closed either way), but
-  must be added to Vercel before/alongside 2c or production `/admin`
-  will 401 for everyone, including with correct credentials.
+- `ADMIN_USERNAME`/`ADMIN_PASSWORD` are still only set in `.env.local`,
+  **not yet in Vercel's production env vars**. Now that 2c has shipped
+  a real, usable `/admin/businesses` page, this is no longer a
+  low-priority future task — production `/admin` will 401 for
+  everyone, including with correct credentials, until this is added.
+  Also worth reconsidering the password's strength (`nfc-admin-2026`)
+  now that it protects a real write surface, not nothing.
 - The `@neondatabase/serverless` driver sets Postgres SQLSTATE error
   codes as `.code` on the error it throws, but Drizzle wraps that in
   its own `DrizzleQueryError` via the standard `Error.cause` chain —
@@ -100,3 +102,21 @@ Durable, project-specific decisions that should survive across sessions.
   a `qr` card and an `nfc` card once NFC cards arrive), so any code
   that lists businesses must group by business, not assume one row per
   business.
+- The "accept the small orphan-business risk" tradeoff from 2b (a
+  `createCard` failure right after a successful `createBusiness`
+  leaves a card-less business row) only holds when the failure is
+  genuinely rare. 2c's admin form initially violated this without
+  realizing it — an ordinary typo (duplicate/malformed slug) is common
+  admin behavior, not a rare DB failure, and with no delete/update in
+  V2 the orphan is permanent. Fixed by validating slug format +
+  uniqueness *before* creating the business. Any future flow that
+  creates a business and a card together must do the same
+  pre-validation — don't rely on the DB constraint alone to protect
+  against ordinary user error, only against genuine races.
+- More test data accumulated in production Neon during 2c's
+  verification, alongside Saffron and the "Test Cafe" business from
+  2b: "Real New Business" (slug `real-new-biz`) and a "Duplicate Slug
+  Test" business with no card (the orphan case, left in place
+  deliberately to prove it renders correctly as "(no cards)" rather
+  than vanishing). All of this test data should be cleaned up before
+  V3's dashboard makes it visible to a real user.

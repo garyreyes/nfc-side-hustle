@@ -38,6 +38,8 @@ Verified end-to-end against the real database (temporarily removing
 call this through) — including creating a real second business
 (Saffron is no longer the only one in the database) and giving it a
 second card to confirm the multi-card grouping fix.
+
+### 2026-08-16 — Basic Auth proxy for /admin (2a)
 Added `src/proxy.ts` (Next.js 16's replacement for `middleware.ts`),
 gating every route under `/admin/*` with HTTP Basic Auth checked
 against `ADMIN_USERNAME`/`ADMIN_PASSWORD`. Fails closed if those env
@@ -51,6 +53,38 @@ against the real dev server: no/wrong/correct credentials, missing env
 vars (fails closed even with an otherwise-correct header), 10
 concurrent unauthenticated requests, and that the public `/r/[slug]`
 route is completely unaffected.
+
+### 2026-08-16 — Admin page: list + create form (2c)
+Added `app/admin/businesses/page.tsx` (Server Component) and
+`features/business-management/actions.ts` (Server Action) — the real
+form that replaces `scripts/seed.ts`. Wires 2a's Basic Auth proxy and
+2b's business-management logic together.
+
+Reviewer sub-agent's main finding: the orphan-business tradeoff
+accepted in 2b (rare DB failure leaves a business with no card) became
+a *common* one here, since an ordinary admin typo (duplicate or
+malformed slug) triggered it via the form — and V2 has no delete/update
+to fix it. Fixed by validating slug format and uniqueness *before*
+creating the business row, so only a genuinely rare concurrent-write
+race can still cause it, matching the originally accepted risk. Also
+fixed: FormData values weren't type-checked before use (a File part
+could've been silently coerced to the string `"[object File]"`),
+unexpected errors weren't logged server-side, and business
+name/slug had no length caps.
+
+Verified end-to-end against the real dev server and real database,
+including confirming the fix directly: submitting a duplicate slug no
+longer creates an orphan business (row count unchanged, business never
+appears in the list), while a genuinely new business still succeeds
+normally. Also verified — since the Next.js docs explicitly warn that
+"render-time gating is not a security boundary" — that a raw POST
+directly to the Server Action's URL (bypassing the rendered form
+entirely) is blocked by the proxy exactly like a GET, not just
+UI-level gating.
+
+**V2 (Phase 2) is complete**: multiple businesses are now fully
+supported end-to-end, from a real admin form through to the public
+redirect.
 
 ### 2026-08-16 — Deploy + QR generation (1c)
 Deployed to Vercel on the free `nfc-side-hustle.vercel.app` subdomain,

@@ -36,10 +36,12 @@ HTTP Basic Auth.
       `features/business-management/api.ts` — `createBusiness()`,
       `createCard()`, `listBusinesses()`, with server-side validation
       (slug format, required fields). Testable independently of any UI.
-- [ ] **2c. Admin page (list + create form)** — not started
+- [x] **2c. Admin page (list + create form)** — done
       `app/admin/businesses/page.tsx` — wires 2a + 2b together: a form
       to add a business + its card, and a list of existing ones.
       Replaces `scripts/seed.ts` as the real way to onboard businesses.
+
+**Phase 2 (V2) complete.**
 
 ## Phase 3 — V3: Dashboard, analytics
 
