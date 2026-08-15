@@ -39,3 +39,6 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# generated QR code images (regenerate with `npm run qr:generate -- <slug>`)
+/qr-codes/

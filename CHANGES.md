@@ -16,3 +16,15 @@ limiting, a generic 404 for unknown slugs, and a graceful error instead
 of a crash if a business's review URL is ever malformed. Verified
 end-to-end against the real dev server and real seeded Neon data
 (valid slug, unknown slug, and rate-limit burst all behaved correctly).
+
+### 2026-08-16 — Deploy + QR generation (1c)
+Deployed to Vercel on the free `nfc-side-hustle.vercel.app` subdomain,
+connected to the real Neon database via Neon's official Vercel
+integration. Verified the live deployment end-to-end (valid slug,
+unknown slug, and a real scan event written to production Neon).
+Added a QR generation script (`npm run qr:generate -- <slug>`) that
+validates the slug format and confirms the URL actually resolves to a
+real card (302) before saving the PNG — refuses to generate a QR for a
+typo'd or non-existent slug, since a printed QR can't be recalled once
+handed to a business. V1 (Phase 1) is now complete: a real QR code for
+Saffron Middle Eastern Restaurant is ready to print.

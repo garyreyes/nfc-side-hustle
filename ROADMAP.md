@@ -13,10 +13,12 @@ Source: `ARCHITECTURE.md` (confirmed).
 - [x] **1b. Redirect route** — done
       `GET /r/[slug]`: validate slug against real Card rows, write a
       ScanEvent, 302-redirect to the Business's Google review URL.
-- [ ] **1c. Deploy + real-world QR verification** — not started
+- [x] **1c. Deploy + real-world QR verification** — done
       Wire the Vercel↔Neon integration, deploy, generate an actual QR
       code pointing at the live slug URL, verify end-to-end by scanning
       it with a phone.
+
+**Phase 1 (V1) complete.**
 
 ## Phase 2 — V2: Multiple businesses, routing, CRUD
 
