@@ -10,7 +10,7 @@ Source: `ARCHITECTURE.md` (confirmed).
       Drizzle schema for Business/Card/ScanEvent, connect to Neon, run
       first migration, seed script inserting the one Business + one Card
       row.
-- [ ] **1b. Redirect route** — not started
+- [x] **1b. Redirect route** — done
       `GET /r/[slug]`: validate slug against real Card rows, write a
       ScanEvent, 302-redirect to the Business's Google review URL.
 - [ ] **1c. Deploy + real-world QR verification** — not started

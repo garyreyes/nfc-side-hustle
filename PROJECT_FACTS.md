@@ -31,4 +31,16 @@ Durable, project-specific decisions that should survive across sessions.
   scripts run via `tsx` (like `scripts/seed.ts`), and `server-only`
   unconditionally throws outside Next's webpack pipeline. The
   client/server boundary guard belongs in the Next.js-only consuming
-  code (e.g. the route handler in 1b), not in `client.ts` itself.
+  code (added to `src/features/scan-tracking/api.ts` in 1b).
+- Rate limiting on `/r/[slug]` (`src/lib/rate-limit.ts`) is a deliberate
+  V1 stopgap: an in-memory, per-instance counter, not a real distributed
+  limiter. This is intentional — V1's actual traffic (one business) does
+  not justify signing up for another external service (e.g. Upstash)
+  yet. Revisit only if real abuse shows up or once V2 adds multiple
+  businesses raises the stakes.
+- Client IP extraction must prefer `x-real-ip` and, failing that, the
+  *last* entry of `x-forwarded-for` (not the first) — the first entry is
+  whatever the client itself sent and is trivially spoofable, which
+  would otherwise let anyone bypass the rate limiter entirely. Found
+  during `reviewer` sub-agent review of 1b, not something manual testing
+  caught.
