@@ -163,7 +163,7 @@ those units can be provisioned.
       hardware batch — must ship before the 20 ordered units arrive.**
       Caused a brief live outage (migration ran before the matching code
       deployed) — fixed immediately, see `CHANGES.md`/`PROJECT_FACTS.md`.
-- [ ] **6b. Real QR/NFC attribution + unassigned/suspended redirect** — not started
+- [x] **6b. Real QR/NFC attribution + unassigned/suspended redirect** — done
       `GET /r/[slug]` reads a `?src=qr`/`?src=nfc` query marker and logs
       the real `interactionType` on `ScanEvent` (missing marker →
       `"unknown"`). Also defines distinct redirect behavior for an
