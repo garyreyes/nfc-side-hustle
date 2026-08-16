@@ -2,6 +2,43 @@
 
 ## Unreleased
 
+### 2026-08-16 — Per-branch dashboard breakdown (5d) — V5 complete, V1-V5 roadmap complete
+Last sub-phase of V5. Both the admin's per-business dashboard
+(`/admin/dashboard/[businessId]`) and a business owner's own
+`/dashboard` now show a "By branch" table — new `getBranchScanBreakdown()`
+in `analytics/api.ts`, wired into the shared `BusinessAnalyticsView`
+component so both routes get it identically for free. Rendered only
+when the business actually has branches; disappears entirely for a
+branch-less business (verified both directions: appeared correctly
+with a temporary branch, disappeared again once it was deleted).
+
+Query is deliberately rooted at `branches`, not `cards`, so a branch
+with no card yet still shows a 0 total rather than silently vanishing
+(same completeness reasoning already used for card-type breakdown). A
+second, separate query buckets cards with no branch at all into an
+explicit "No branch" row, since those can't be reached by rooting at
+`branches` — the two queries are provably non-overlapping since
+`cards.branchId` is a single nullable FK, confirmed by the reviewer
+sub-agent along with authorization correctness (reuses the same
+`businessExists`/`sessionCanAccessBusiness` guard as its sibling
+queries — no gap letting a business_owner see another business's
+branch data) and consistent `startAt` cutoff handling between both
+queries. No real findings from the review.
+
+Verified end-to-end against real production data: created a real
+branch, a real card attached to it, generated 3 real scans via the
+actual redirect route, confirmed the dashboard showed the branch's
+correct total plus a correct "No branch" total (using one intentional
+extra scan on the real Saffron card — left in place afterward, same
+established precedent as 1c/2c's test-scan residue, rather than risk
+deleting real traffic). All temporary branch/card/scan-event test data
+cleaned up and confirmed absent afterward.
+
+**V5 (multi-branch locations) is complete — 5a schema, 5b
+branch-aware redirect, 5c admin branch management, 5d per-branch
+dashboard breakdown all shipped.** This closes out the full V1-V5
+roadmap.
+
 ### 2026-08-16 — Admin UI for managing branches (5c)
 Third sub-phase of V5. `/admin/businesses` now lets a platform admin
 create and view branches per business, and gained a standalone

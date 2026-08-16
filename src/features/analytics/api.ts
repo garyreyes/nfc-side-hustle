@@ -1,8 +1,8 @@
 import "server-only";
-import { and, eq, gte, sql } from "drizzle-orm";
+import { and, eq, gte, isNull, sql } from "drizzle-orm";
 import { requirePlatformAdmin, sessionCanAccessBusiness } from "@/lib/auth/dal";
 import { db } from "@/lib/db/client";
-import { businesses, cardTypeEnum, cards, scanEvents } from "@/lib/db/schema";
+import { branches, businesses, cardTypeEnum, cards, scanEvents } from "@/lib/db/schema";
 import { DASHBOARD_DATA_START_AT, MANILA_TIMEZONE, type ScanRangeDays } from "./constants";
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -138,4 +138,67 @@ export async function getScanBreakdownByCardType(
 
   const counted = new Map(rows.map((row) => [row.type, row.count]));
   return CARD_TYPES.map((type) => ({ type, count: counted.get(type) ?? 0 }));
+}
+
+export type BranchScanBreakdown = {
+  /** null represents cards not attached to any branch. */
+  branchId: string | null;
+  name: string;
+  totalScans: number;
+};
+
+// Returns [] (not null) for a business with no branches — the caller uses
+// that to decide whether to render the "by branch" section at all, same
+// as the empty-array/notFound distinction ARCHITECTURE.md establishes for
+// this component (null means "not found/not allowed", not "no data").
+export async function getBranchScanBreakdown(
+  businessId: string,
+  startAt: Date = DASHBOARD_DATA_START_AT
+): Promise<BranchScanBreakdown[] | null> {
+  if (!(await businessExists(businessId))) return null;
+  if (!(await sessionCanAccessBusiness(businessId))) return null;
+
+  // Rooted at `branches`, not `cards`, so a branch with no card yet still
+  // shows up with a 0 total — same completeness reasoning as CARD_TYPES
+  // above (a real thing that exists shouldn't silently vanish just
+  // because it has no traffic yet).
+  const branchRows = await db
+    .select({
+      branchId: branches.id,
+      name: branches.name,
+      totalScans: sql<number>`count(${scanEvents.id})`.mapWith(Number),
+    })
+    .from(branches)
+    .leftJoin(cards, eq(cards.branchId, branches.id))
+    .leftJoin(
+      scanEvents,
+      and(eq(scanEvents.cardId, cards.id), gte(scanEvents.scannedAt, startAt))
+    )
+    .where(eq(branches.businessId, businessId))
+    .groupBy(branches.id, branches.name)
+    .orderBy(branches.name, branches.id);
+
+  if (branchRows.length === 0) {
+    return [];
+  }
+
+  // A separate query for cards with no branch at all — these can't be
+  // reached by rooting at `branches` above, but still count toward the
+  // business's total scans, so they need their own explicit bucket for
+  // the numbers to add up to what the "By card type" table already shows.
+  const [noBranchRow] = await db
+    .select({
+      totalScans: sql<number>`count(${scanEvents.id})`.mapWith(Number),
+    })
+    .from(cards)
+    .leftJoin(
+      scanEvents,
+      and(eq(scanEvents.cardId, cards.id), gte(scanEvents.scannedAt, startAt))
+    )
+    .where(and(eq(cards.businessId, businessId), isNull(cards.branchId)));
+
+  return [
+    ...branchRows.map((row) => ({ branchId: row.branchId, name: row.name, totalScans: row.totalScans })),
+    { branchId: null, name: "No branch", totalScans: noBranchRow.totalScans },
+  ];
 }

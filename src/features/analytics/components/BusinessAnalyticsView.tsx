@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { getScanBreakdownByCardType, getScanTimeSeries } from "../api";
+import { getBranchScanBreakdown, getScanBreakdownByCardType, getScanTimeSeries } from "../api";
 import type { ScanRangeDays } from "../constants";
 import { ScanTimeSeriesChart } from "./ScanTimeSeriesChart";
 
@@ -24,12 +24,13 @@ export async function BusinessAnalyticsView({
   businessId: string;
   days: ScanRangeDays;
 }) {
-  const [timeSeries, breakdown] = await Promise.all([
+  const [timeSeries, breakdown, branchBreakdown] = await Promise.all([
     getScanTimeSeries(businessId, days),
     getScanBreakdownByCardType(businessId),
+    getBranchScanBreakdown(businessId),
   ]);
 
-  if (timeSeries === null || breakdown === null) {
+  if (timeSeries === null || breakdown === null || branchBreakdown === null) {
     notFound();
   }
 
@@ -74,6 +75,34 @@ export async function BusinessAnalyticsView({
           ))}
         </tbody>
       </table>
+
+      {branchBreakdown.length > 0 && (
+        <>
+          <h2>By branch</h2>
+          <table style={{ borderCollapse: "collapse" }}>
+            <thead>
+              <tr>
+                <th scope="col" style={{ textAlign: "left", borderBottom: "1px solid #ccc", padding: 8 }}>
+                  Branch
+                </th>
+                <th scope="col" style={{ textAlign: "right", borderBottom: "1px solid #ccc", padding: 8 }}>
+                  Scans
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {branchBreakdown.map((row) => (
+                <tr key={row.branchId ?? "no-branch"}>
+                  <td style={{ padding: 8, borderBottom: "1px solid #eee" }}>{row.name}</td>
+                  <td style={{ padding: 8, borderBottom: "1px solid #eee", textAlign: "right" }}>
+                    {row.totalScans}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </>
+      )}
     </>
   );
 }
