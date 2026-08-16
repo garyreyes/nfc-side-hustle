@@ -5,6 +5,7 @@ import { requirePlatformAdmin } from "@/lib/auth/dal";
 import { isValidSlug } from "@/lib/slug";
 import {
   BusinessManagementError,
+  createBranch,
   createBusiness,
   createBusinessOwner,
   createCard,
@@ -113,6 +114,52 @@ export async function addBusinessOwnerAction(businessId: string, formData: FormD
       redirect(`/admin/businesses?error=${encodeURIComponent(err.message)}`);
     }
     console.error("addBusinessOwnerAction: unexpected error", err);
+    redirect(`/admin/businesses?error=${encodeURIComponent("Something went wrong.")}`);
+  }
+
+  redirect("/admin/businesses");
+}
+
+// businessId is bound via .bind() from the page, same reasoning as
+// addBusinessOwnerAction above.
+export async function createBranchAction(businessId: string, formData: FormData) {
+  await requirePlatformAdmin();
+
+  const name = formField(formData, "name");
+  const googleReviewUrl = formField(formData, "googleReviewUrl");
+
+  try {
+    await createBranch({ businessId, name, googleReviewUrl });
+  } catch (err) {
+    if (err instanceof BusinessManagementError) {
+      redirect(`/admin/businesses?error=${encodeURIComponent(err.message)}`);
+    }
+    console.error("createBranchAction: unexpected error", err);
+    redirect(`/admin/businesses?error=${encodeURIComponent("Something went wrong.")}`);
+  }
+
+  redirect("/admin/businesses");
+}
+
+// businessId is bound via .bind() from the page, same reasoning as
+// addBusinessOwnerAction above. Unlike createBusinessAction, no
+// isSlugTaken() pre-check is needed here — a duplicate/malformed slug
+// here doesn't risk orphaning anything (this only ever inserts a single
+// card row, never a business), so createCard()'s own validation and
+// unique-constraint handling is sufficient.
+export async function createCardAction(businessId: string, formData: FormData) {
+  await requirePlatformAdmin();
+
+  const slug = formField(formData, "slug");
+  const branchId = formField(formData, "branchId");
+
+  try {
+    await createCard({ businessId, slug, branchId: branchId || undefined });
+  } catch (err) {
+    if (err instanceof BusinessManagementError) {
+      redirect(`/admin/businesses?error=${encodeURIComponent(err.message)}`);
+    }
+    console.error("createCardAction: unexpected error", err);
     redirect(`/admin/businesses?error=${encodeURIComponent("Something went wrong.")}`);
   }
 

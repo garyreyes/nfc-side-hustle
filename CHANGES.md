@@ -2,6 +2,43 @@
 
 ## Unreleased
 
+### 2026-08-16 — Admin UI for managing branches (5c)
+Third sub-phase of V5. `/admin/businesses` now lets a platform admin
+create and view branches per business, and gained a standalone
+"add card" form — previously a card could only be created bundled with
+a brand-new business, so there was no way to add a second card (e.g.
+for a second branch) to a business that already existed. The new card
+form includes an optional branch selector.
+
+`listBusinesses()` in `business-management/api.ts` extended to also
+return each business's branches and each card's `branchId` (a second,
+separate query merged in JS — this driver has no transactions).
+`createBranchAction`/`createCardAction` added to `actions.ts`, following
+the same bound-Server-Action, `requirePlatformAdmin()`-first pattern as
+the existing `addBusinessOwnerAction`.
+
+Reviewer sub-agent's finding, fixed: branch names aren't required to be
+unique within a business (deliberate, see `PROJECT_FACTS.md`) — the new
+branch `<select>` and branch/card listings originally showed only the
+branch name, so two same-named branches would be visually
+indistinguishable and an admin could attach a card to the wrong one.
+Fixed by labeling every branch display with `name — googleReviewUrl`,
+re-verified with two intentionally same-named test branches.
+
+Also found and cleaned up during this pass, unrelated to 5c itself: two
+stray `_Verify Tmp Branch` rows in production, leftover residue from an
+earlier, incompletely-cleaned verification pass — confirmed with the
+owner before deleting.
+
+Verified end-to-end via the real rendered admin UI (not a temporary
+Route Handler this time — logged in through the real `/login` form with
+the real platform_admin credentials, then drove the actual bound Server
+Actions via curl): created a real branch, created a card attached to it
+and a card with no branch, confirmed both listed correctly with the
+right branch annotation, confirmed both redirect correctly (tying 5b
+and 5c together end-to-end). All test data cleaned up and confirmed
+absent afterward.
+
 ### 2026-08-16 — Branch-aware redirect (5b)
 Second sub-phase of V5 — the actual customer-facing payoff. `GET
 /r/[slug]` now resolves `branch.googleReviewUrl ?? business.googleReviewUrl`

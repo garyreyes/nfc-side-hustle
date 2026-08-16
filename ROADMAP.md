@@ -130,7 +130,7 @@ new permission model, `business_owner` stays read-only, no dedicated
       `GET /r/[slug]` resolves `card.branch?.googleReviewUrl ??
       business.googleReviewUrl`. Small, focused — the actual
       customer-facing payoff of the phase.
-- [ ] **5c. Admin UI for managing branches**
+- [x] **5c. Admin UI for managing branches** — done
       Extends `/admin/businesses` to create/list branches per
       business; the card-creation form gains an optional branch
       selector.
