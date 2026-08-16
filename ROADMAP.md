@@ -110,7 +110,34 @@ folded into the architecture doc and the sub-phases below.
 
 **Phase 4 (V4) complete.**
 
-## Phase 5 — V5: Multi-branch hierarchy
+## Phase 5 — V5: Multi-Branch Locations
 
-Not yet sub-phased — needs its own `app-architect` pass. Source:
-`AI_Engineering_and_NFC_Roadmap.md` §10.
+Architecture confirmed (see `ARCHITECTURE.md` § V5) — optional
+per-branch locations, each with its own Google review URL and scan
+tracking. Purely additive: new `Branch` table + `cards.branchId`
+(nullable FK), no migration of existing data. Lower risk than V4 — no
+new permission model, `business_owner` stays read-only, no dedicated
+`security-baseline` pass needed.
+
+- [ ] **5a. Schema + branch/card creation logic**
+      New `Branch` table (`id`, `businessId`, `name`,
+      `googleReviewUrl`); `cards.branchId` (nullable FK) migration.
+      `createBranch()` in `business-management/api.ts`; `createCard()`
+      extended to accept an optional `branchId`, validated against the
+      target business. No UI yet — testable independently via
+      scripts, same pattern as 1a/2b/4a.
+- [ ] **5b. Branch-aware redirect**
+      `GET /r/[slug]` resolves `card.branch?.googleReviewUrl ??
+      business.googleReviewUrl`. Small, focused — the actual
+      customer-facing payoff of the phase.
+- [ ] **5c. Admin UI for managing branches**
+      Extends `/admin/businesses` to create/list branches per
+      business; the card-creation form gains an optional branch
+      selector.
+- [ ] **5d. Per-branch dashboard breakdown**
+      New per-branch scan query in `analytics/api.ts`; extends the
+      shared `BusinessAnalyticsView` with a branch breakdown section,
+      shown only for businesses that actually have branches — works
+      identically for the admin view and a business owner's own
+      `/dashboard`. Last sub-phase — V5 (and the whole V1-V5 roadmap)
+      complete once this ships.

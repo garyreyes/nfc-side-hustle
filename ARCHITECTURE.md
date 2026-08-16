@@ -367,18 +367,90 @@ src/
 `verifySession()` call; `analytics` additionally scopes
 `business_owner` results to their own business.
 
+## V5 Architecture — Multi-Branch Locations
+
+V5 supports a business having multiple physical locations (a "Branch"),
+each with its own Google review URL and its own scan tracking — because
+a real multi-location business typically has a *separate* Google
+Business listing per physical location, not one shared review page.
+
+**Purely additive — no migration of existing data.** Every prior
+version's assumption (a card belongs directly to a business, a
+business has one review URL) keeps working unchanged:
+
+```
+Business (id, name, googleReviewUrl, ownerId -> User, nullable)   [unchanged]
+Branch   (id, businessId -> Business, name, googleReviewUrl)       [NEW]
+Card     (id, businessId -> Business, branchId -> Branch, nullable, slug, type)  [+branchId]
+ScanEvent(id, cardId, scannedAt)                                    [unchanged]
+
+Business 1---* Branch
+Business 1---* Card        (unchanged — a card without a branch behaves exactly as before)
+Branch   1---* Card         (a card can optionally belong to a specific branch)
+Card     1---* ScanEvent
+```
+
+**Scope, deliberately kept smaller than the alternative considered:**
+Branch was scoped as *optional and additive* rather than mandatory for
+every business — a simple single-location business (Saffron today)
+never needs a Branch row at all, and nothing about its existing data or
+code paths changes. The alternative (every business always has ≥1
+Branch, Business becomes a pure container) was considered and rejected
+specifically to avoid migrating Saffron's existing card and touching
+every code path that currently reads `Business.googleReviewUrl`
+directly, for a capability nothing currently needs.
+
+**Redirect resolution**: `GET /r/[slug]` now resolves
+`card.branch?.googleReviewUrl ?? business.googleReviewUrl` — a card
+with no branch redirects exactly as it always has.
+
+**Dashboard**: the per-business detail page (`BusinessAnalyticsView`,
+shared by both the admin view and a business owner's `/dashboard`)
+gains a per-branch scan breakdown, shown only for businesses that
+actually have branches — this is the actual payoff of modeling
+branches at all, letting an owner compare locations.
+
+**Permissions: platform_admin only, no new capability for
+business_owner.** V4 established business_owner as strictly read-only
+(they can view their own dashboard but never create or edit anything).
+Branch creation/management stays exclusively platform_admin, matching
+how business/card creation already works — a business owner does not
+get self-service branch creation in V5. Branch creation validates that
+a card's `branchId`, if given, actually belongs to the target
+business (defense in depth against an admin typo attaching a card to
+the wrong business's branch).
+
+Folder structure additions for V5 — purely additive, no new feature
+folder (Branch is the same entity family as Business/Card):
+```
+src/
+  lib/db/schema.ts                          # + branches table, cards.branchId (nullable FK)
+  features/
+    business-management/
+      api.ts                                # + createBranch(), createCard() accepts optional branchId
+      actions.ts                            # + createBranchAction, card form gains branch selector
+    analytics/
+      api.ts                                # + per-branch scan breakdown query
+      components/BusinessAnalyticsView.tsx   # + branch breakdown section (only rendered if branches exist)
+  app/
+    r/[slug]/route.ts                       # branch-aware redirect resolution
+    admin/businesses/page.tsx               # manage branches per business
+```
+
 ## Roadmap context
 
-This is Version 4 of 5 from the project roadmap:
+This is Version 5 of 5 from the project roadmap:
 1. V1 — one business, one QR code, redirect + log ✅
 2. V2 — multiple businesses, routing (already works), admin CRUD
    (Create + Read) ✅
 3. V3 — dashboard, analytics (full: time-series + per-card breakdown) ✅
-4. **V4 (this doc)** — real accounts (platform admin + business
-   owners), database sessions, DAL-enforced authorization, replaces
-   V2's Basic Auth entirely
-5. V5 — multi-branch hierarchy
+4. V4 — real accounts (platform admin + business owners), database
+   sessions, DAL-enforced authorization, replaces V2's Basic Auth
+   entirely ✅
+5. **V5 (this doc)** — optional per-branch locations, each with its own
+   review URL and scan tracking, rolling up into the existing
+   per-business dashboard
 
 The entity/folder choices from V1 were made specifically so V2–V5
-extend this structure rather than requiring a rebuild — V4 is the
-first genuine schema change (one nullable column), not a rebuild.
+extend this structure rather than requiring a rebuild — V5 continues
+that: no migration, no folder restructure, purely additive.
