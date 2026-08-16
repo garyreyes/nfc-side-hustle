@@ -2,6 +2,41 @@
 
 ## Unreleased
 
+### 2026-08-17 — Real qr/nfc attribution + unassigned/suspended redirect handling (6b)
+Second sub-phase of V6. No schema change — 6a already shipped the
+columns this reads/writes, so unlike 6a there was no migration/deploy
+sequencing risk this round.
+
+`GET /r/[slug]` now reads the `?src=qr` / `?src=nfc` marker (baked into
+plates since the pilot batch generator) and logs the real
+`interactionType` on every `ScanEvent`, instead of leaving every scan at
+the `"unknown"` default forever. `getPlateBySlug` (renamed from
+`getPlateWithBusinessBySlug`) now left-joins businesses/branches instead
+of inner-joining, so an `unassigned` plate resolves distinctly from a
+slug that doesn't exist at all — previously both looked identical (a
+plain 404). The route now branches on plate status: `unassigned` shows
+a "hasn't been activated yet" message, `suspended` shows a "temporarily
+paused" message, `active` is unchanged (redirects as before). Every real
+hit against an existing plate is still logged regardless of status —
+useful telemetry even for a paused or not-yet-sold plate.
+
+No reviewer findings — self-verified directly against the real dev
+server, real production data, and the real deployed route this time
+(learning applied from 6a: code was already fully committed, pushed,
+CI-green, and merged before any production behavior depended on it, so
+there was no outage window this round).
+
+Verified end-to-end against real production: `/r/saffron?src=qr`,
+`/r/saffron?src=nfc`, and a plain `/r/saffron` all still redirect
+correctly, and a direct read of the three resulting `scan_events` rows
+confirmed `interactionType` was logged as `"qr"`, `"nfc"`, and
+`"unknown"` respectively, in that order. Also verified the two new
+status branches directly against production using temporary test
+plates: an `unassigned` plate returned the "hasn't been activated yet"
+message (200), a `suspended` plate (tied to the real Saffron business)
+returned the "temporarily paused" message (200) — both cleaned up
+afterward and confirmed absent.
+
 ### 2026-08-17 — Card → Plate rename + inventory schema (6a)
 First sub-phase of V6 (see `ARCHITECTURE.md` § V6 / `ROADMAP.md` Phase 6).
 Renamed the `Card` entity to `Plate` throughout the schema, every
