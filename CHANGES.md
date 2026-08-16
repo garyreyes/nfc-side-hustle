@@ -2,6 +2,35 @@
 
 ## Unreleased
 
+### 2026-08-17 — Sale price, revenue & profit tracking (7b)
+Follow-up to 7a, closing the "no revenue/sale-price tracking" gap that
+sub-phase deliberately left out. One new nullable column on `plates`:
+`sellPriceCents`, set optionally alongside `assignPlateToBusiness()` —
+the same "sold" event `assignedAt`/`unitCostCents` already key off, so a
+sale gets priced (or not) at the same moment it's recorded, not through
+a separate flow.
+
+`/admin/plates`'s "Assign to business" form gained a "Sale price (₱)"
+field. `/admin/inventory` gained a second table, "Sales & revenue": sold
+count + revenue for today/this week/this month, revenue and cost of
+goods sold all-time, and profit all-time (revenue minus cost of goods
+sold — distinct from the first table's "Total cost," which includes
+still-unsold stock). Profit shows as "—" rather than ₱0 whenever nothing
+priced has sold yet, so "no data" can't be misread as "broke even." Also
+added "Sold today" and "Revenue today" stat cards to the top of the page
+— sold-today already existed in the per-capability table but had no
+top-level total.
+
+Correctness-critical (money math). Verified against real production data
+via a temporary authenticated Route Handler: inserted four priced/costed
+test plates across today/this-week/this-month/all-time buckets (one
+deliberately left unpriced to confirm a null sale price is excluded from
+revenue sums, not counted as ₱0) plus one unassigned unit, and checked
+all 13 derived figures (sold counts, revenue, cost of goods sold, total
+cost, ordered/remaining, and profit) against hand-calculated expected
+values as an exact before/after delta — all 13 passed. Verification
+route, script, and all test data deleted afterward and confirmed absent.
+
 ### 2026-08-17 — Internal inventory & cost tracking (7a) — V7 complete
 First and only sub-phase of V7 (see `ARCHITECTURE.md` § V7 /
 `ROADMAP.md` Phase 7) — owner-only procurement bookkeeping, never seen

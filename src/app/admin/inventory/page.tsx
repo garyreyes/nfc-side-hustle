@@ -27,10 +27,28 @@ export default async function AdminInventoryPage({
     (acc, row) => ({
       ordered: acc.ordered + row.ordered,
       remaining: acc.remaining + row.remaining,
+      soldToday: acc.soldToday + row.soldToday,
       soldAllTime: acc.soldAllTime + row.soldAllTime,
       totalCostCents: acc.totalCostCents + (row.totalCostCents ?? 0),
+      revenueTodayCents: acc.revenueTodayCents + (row.revenueTodayCents ?? 0),
+      revenueAllTimeCents: acc.revenueAllTimeCents + (row.revenueAllTimeCents ?? 0),
+      profitAllTimeCents: acc.profitAllTimeCents + (row.profitAllTimeCents ?? 0),
+      // A grand-total profit is only meaningful if at least one
+      // capability actually has priced sales — otherwise "₱0 profit"
+      // would misleadingly read as "broke even" instead of "no data".
+      hasAnyProfitData: acc.hasAnyProfitData || row.profitAllTimeCents !== null,
     }),
-    { ordered: 0, remaining: 0, soldAllTime: 0, totalCostCents: 0 }
+    {
+      ordered: 0,
+      remaining: 0,
+      soldToday: 0,
+      soldAllTime: 0,
+      totalCostCents: 0,
+      revenueTodayCents: 0,
+      revenueAllTimeCents: 0,
+      profitAllTimeCents: 0,
+      hasAnyProfitData: false,
+    }
   );
 
   return (
@@ -62,8 +80,15 @@ export default async function AdminInventoryPage({
       >
         <StatCard label="Ordered (all time)" value={totals.ordered} />
         <StatCard label="Remaining" value={totals.remaining} />
+        <StatCard label="Sold today" value={totals.soldToday} />
         <StatCard label="Sold (all time)" value={totals.soldAllTime} />
-        <StatCard label="Total cost" value={formatPeso(totals.totalCostCents)} />
+        <StatCard label="Revenue today" value={formatPeso(totals.revenueTodayCents)} />
+        <StatCard label="Revenue (all time)" value={formatPeso(totals.revenueAllTimeCents)} />
+        <StatCard
+          label="Profit (all time)"
+          value={totals.hasAnyProfitData ? formatPeso(totals.profitAllTimeCents) : "—"}
+        />
+        <StatCard label="Total cost (all inventory)" value={formatPeso(totals.totalCostCents)} />
       </div>
 
       <Card title="Record inventory arrival">
@@ -177,6 +202,67 @@ export default async function AdminInventoryPage({
       <p className={styles.costNote}>
         Cost columns only count plates whose cost was recorded through &ldquo;Record inventory
         arrival&rdquo; — plates added ad-hoc via <code>/admin/businesses</code> have no cost on file.
+      </p>
+
+      <div style={{ height: "var(--space-6)" }} />
+
+      <h2 className={styles.sectionHeading}>Sales &amp; revenue</h2>
+      <div className={styles.tableWrap}>
+        <table className={tableStyles.table}>
+          <thead>
+            <tr>
+              <th scope="col">Capability</th>
+              <th scope="col" data-align="right">
+                Sold today
+              </th>
+              <th scope="col" data-align="right">
+                Revenue today
+              </th>
+              <th scope="col" data-align="right">
+                Sold this week
+              </th>
+              <th scope="col" data-align="right">
+                Revenue this week
+              </th>
+              <th scope="col" data-align="right">
+                Sold this month
+              </th>
+              <th scope="col" data-align="right">
+                Revenue this month
+              </th>
+              <th scope="col" data-align="right">
+                Revenue all time
+              </th>
+              <th scope="col" data-align="right">
+                Cost of goods sold
+              </th>
+              <th scope="col" data-align="right">
+                Profit all time
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {summary.map((row) => (
+              <tr key={row.capability}>
+                <td className={styles.capabilityLabel}>{row.capability}</td>
+                <td data-align="right">{row.soldToday}</td>
+                <td data-align="right">{formatPeso(row.revenueTodayCents)}</td>
+                <td data-align="right">{row.soldThisWeek}</td>
+                <td data-align="right">{formatPeso(row.revenueThisWeekCents)}</td>
+                <td data-align="right">{row.soldThisMonth}</td>
+                <td data-align="right">{formatPeso(row.revenueThisMonthCents)}</td>
+                <td data-align="right">{formatPeso(row.revenueAllTimeCents)}</td>
+                <td data-align="right">{formatPeso(row.costOfGoodsSoldCents)}</td>
+                <td data-align="right">{formatPeso(row.profitAllTimeCents)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <p className={styles.costNote}>
+        Revenue only counts plates assigned with a sale price entered on <code>/admin/plates</code>
+        — an assignment left blank stays untracked, same as cost. Cost of goods sold only counts
+        already-sold plates (unlike &ldquo;Total cost&rdquo; above, which includes unsold stock).
       </p>
     </AppShell>
   );

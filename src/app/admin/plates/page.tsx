@@ -139,6 +139,16 @@ export default async function AdminPlatesPage({
                             </option>
                           ))}
                         </select>
+                        <input
+                          className={formStyles.input}
+                          type="number"
+                          name="sellPrice"
+                          min="0"
+                          step="0.01"
+                          placeholder="Sale price (₱)"
+                          aria-label="Sale price in pesos"
+                          style={{ width: "9rem" }}
+                        />
                         <SubmitButton
                           className={`${formStyles.buttonSecondary} ${formStyles.buttonSmall}`}
                           pendingLabel="Assigning…"

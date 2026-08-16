@@ -102,6 +102,13 @@ export const plates = pgTable("plates", {
   // the existing "Add plate" form, and every plate created before V7
   // existed, stay null (an untracked-cost plate, not a zero-cost one).
   unitCostCents: integer("unit_cost_cents"),
+  // V7b: what the plate was actually sold for, entered alongside
+  // assignPlateToBusiness() (the same "sold" event unitCostCents/
+  // assignedAt already key off). Optional like unitCostCents — an
+  // assignment made without a price stays null rather than becoming a
+  // false "sold for ₱0", so revenue sums (which ignore SQL NULLs) don't
+  // silently undercount real sales as ₱0 ones.
+  sellPriceCents: integer("sell_price_cents"),
 });
 
 export const scanEvents = pgTable("scan_events", {

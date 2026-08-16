@@ -590,23 +590,46 @@ not-yet-sold units would have zero database representation and
   login rather than getting a separate account, a deliberate choice to
   keep this feature from growing its own access-control surface.
 
-**Deliberately out of scope**: no revenue or sale-price tracking (cost
-and counts only — "sold" means the assignment event, not a payment
+**Deliberately out of scope for 7a**: no revenue or sale-price tracking
+(cost and counts only — "sold" means the assignment event, not a payment
 record); no cost field added to the existing "Add plate" form (that path
 stays the ad-hoc, untracked one); no new table — `plates` and the
 existing `batches` table already model this once the two columns above
 exist.
 
-Folder structure additions for V7:
+**7b adds sale-price tracking, revenue, and profit** — one more nullable
+column, no new table:
+
+```
+Plate (... unchanged ..., sellPriceCents: integer, nullable)   [NEW]
+```
+
+- `sellPriceCents` — entered alongside `assignPlateToBusiness()`, the
+  same "sold" event `assignedAt`/`unitCostCents` already key off. Optional
+  like `unitCostCents`: an assignment made with the price left blank
+  stays `null` rather than becoming a false ₱0 sale, so `sum()` (which
+  ignores SQL `NULL`s) doesn't silently undercount real sales as ₱0 ones.
+- `/admin/plates`'s "Assign to business" form gained a "Sale price (₱)"
+  field alongside the business picker.
+- `/admin/inventory` gained a second table, "Sales & revenue": sold count
+  + revenue per today/this week/this month, revenue all-time, cost of
+  goods sold (unlike the first table's "Total cost," which sums *all*
+  inventory including unsold stock, this sums only plates that actually
+  sold), and profit all-time (revenue − cost of goods sold). Profit is
+  `null`, not ₱0, whenever nothing priced has sold yet — a ₱0 figure
+  would misleadingly read as "broke even" rather than "no data."
+
+Folder structure additions for V7 (7a + 7b):
 ```
 src/
-  lib/db/schema.ts                          # plates + assignedAt, unitCostCents
+  lib/db/schema.ts                          # plates + assignedAt, unitCostCents, sellPriceCents
   features/
     business-management/
-      api.ts                                # + recordInventoryArrival(); assignPlateToBusiness() also sets assignedAt
-      actions.ts                            # + recordInventoryArrivalAction
+      api.ts                                # + recordInventoryArrival(), getInventorySummary() revenue/profit;
+                                              #   assignPlateToBusiness() also sets assignedAt + sellPriceCents
+      actions.ts                            # + recordInventoryArrivalAction; assignPlateAction takes sellPrice
   app/
-    admin/inventory/page.tsx                # NEW — arrival form + per-capability breakdown
+    admin/inventory/page.tsx                # arrival form + per-capability stock breakdown + sales/revenue table
 ```
 
 ## Roadmap context

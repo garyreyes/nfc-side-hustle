@@ -214,10 +214,17 @@ that batch can go through it too.
       ordered, sold today/week/month/all-time, remaining, total/average
       cost. Single sub-phase — small enough not to force an artificial
       split, matching 6d's precedent of shipping API + UI together.
+- [x] **7b. Sale price, revenue & profit** — done
+      Add `plates.sellPriceCents`, set optionally alongside
+      `assignPlateToBusiness()`. Add a "Sale price (₱)" field to
+      `/admin/plates`'s assign form. Extend `getInventorySummary()` and
+      `/admin/inventory` with a "Sales & revenue" table (sold count +
+      revenue per today/week/month, revenue and cost-of-goods-sold
+      all-time, profit all-time) plus "Sold today"/"Revenue today" stat
+      cards. Closes the gap 7a deliberately left open.
 
-**Not in scope for V7, deliberately**: no revenue/sale-price tracking
-(cost and counts only), no cost field on the existing "Add plate" form,
-no new permission tier (the business partner shares the existing admin
-login).
+**Not in scope for V7, deliberately**: no new permission tier (the
+business partner shares the existing admin login); no manual/ad-hoc
+expense log distinct from recorded plate cost.
 
 **Phase 7 (V7) complete.**
