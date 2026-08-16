@@ -1,5 +1,10 @@
 import { notFound } from "next/navigation";
-import { getBranchScanBreakdown, getScanBreakdownByCapability, getScanTimeSeries } from "../api";
+import {
+  getBranchScanBreakdown,
+  getScanBreakdownByCapability,
+  getScanBreakdownByInteractionType,
+  getScanTimeSeries,
+} from "../api";
 import type { ScanRangeDays } from "../constants";
 import styles from "./BusinessAnalyticsView.module.css";
 import tableStyles from "@/shared/ui/table.module.css";
@@ -26,13 +31,14 @@ export async function BusinessAnalyticsView({
   businessId: string;
   days: ScanRangeDays;
 }) {
-  const [timeSeries, breakdown, branchBreakdown] = await Promise.all([
+  const [timeSeries, breakdown, channelBreakdown, branchBreakdown] = await Promise.all([
     getScanTimeSeries(businessId, days),
     getScanBreakdownByCapability(businessId),
+    getScanBreakdownByInteractionType(businessId),
     getBranchScanBreakdown(businessId),
   ]);
 
-  if (timeSeries === null || breakdown === null || branchBreakdown === null) {
+  if (timeSeries === null || breakdown === null || channelBreakdown === null || branchBreakdown === null) {
     notFound();
   }
 
@@ -71,6 +77,28 @@ export async function BusinessAnalyticsView({
             {breakdown.map((row) => (
               <tr key={row.capability}>
                 <td>{row.capability}</td>
+                <td data-align="right">{row.count}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      <div className={styles.tableCard}>
+        <h2 className={styles.sectionTitle}>By channel</h2>
+        <table className={tableStyles.table}>
+          <thead>
+            <tr>
+              <th scope="col">Channel</th>
+              <th scope="col" data-align="right">
+                Scans
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {channelBreakdown.map((row) => (
+              <tr key={row.interactionType}>
+                <td>{row.interactionType}</td>
                 <td data-align="right">{row.count}</td>
               </tr>
             ))}
