@@ -2,6 +2,45 @@
 
 ## Unreleased
 
+### 2026-08-17 — Admin inventory UI (6d)
+Fourth sub-phase of V6. New `/admin/plates` page: lists every plate with
+status/capability/business/branch/batch, filterable by status
+(All/Unassigned/Active/Suspended, with counts). Four new write actions
+in `business-management/api.ts`, all `platform_admin`-only:
+`assignPlateToBusiness()` (unassigned → active, atomic check-and-set via
+the WHERE clause rather than select-then-update, so no transaction is
+needed to avoid a TOCTOU race against a concurrent assignment),
+`setPlateBranch()` (separate from assignment on purpose — a
+dependent business→branch dropdown isn't possible in a plain
+server-rendered form without client JS, so branch is its own follow-up
+action, scoped to whichever business the plate already has, and doubles
+as how an already-assigned plate's branch gets changed later),
+`updatePlateCapability()`, and `setPlateStatus()` (active↔suspended
+only, can't touch an unassigned plate — enforced the same atomic way).
+
+Classified the assignment logic as correctness-critical during planning
+(wrong business = a customer's scan lands on the wrong reviews) but
+this project has no DB-mocking test harness and no precedent for one —
+confirmed with the owner to verify against real data instead, matching
+every prior correctness-critical piece in this codebase (the V4 auth
+cutover, business/branch scoping, analytics authorization).
+
+Verified end-to-end against real production data via a temporary
+authenticated Route Handler (same technique as 5a — these functions
+need a real request context for `requirePlatformAdmin()`, which a
+standalone script can't provide), hit with a session cookie signed
+directly using the app's own `SESSION_SECRET`/session-row logic rather
+than going through the login form. Covered: assigning an unassigned
+plate (status→active, businessId set); re-assigning an already-active
+plate correctly rejected; setting a branch that belongs to a *different*
+business correctly rejected (the same class of check 5a/5c already
+established for `createPlate`/`createBranch`); setting and clearing a
+valid branch; updating capability; suspending an unassigned plate
+correctly rejected; suspend then reactivate both working. All 9 checks
+passed on the first run. All temporary businesses/branches/plates/
+sessions and the verification route itself deleted afterward and
+confirmed absent via a direct query.
+
 ### 2026-08-17 — Bulk batch generator script, hardened (6c)
 Third sub-phase of V6. `scripts/generate-batch.ts` existed as a
 first-pass local-file-only generator from planning (before V6a's schema

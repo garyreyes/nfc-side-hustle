@@ -1,9 +1,9 @@
 import "server-only";
-import { eq } from "drizzle-orm";
+import { and, eq, ne } from "drizzle-orm";
 import { requirePlatformAdmin } from "@/lib/auth/dal";
 import { hashPassword } from "@/lib/auth/passwords";
 import { db } from "@/lib/db/client";
-import { branches, businesses, plates, users } from "@/lib/db/schema";
+import { batches, branches, businesses, plates, users } from "@/lib/db/schema";
 import { isValidSlug } from "@/lib/slug";
 
 export class BusinessManagementError extends Error {}
@@ -316,4 +316,162 @@ export async function listBusinesses(): Promise<BusinessWithPlates[]> {
   }
 
   return Array.from(byBusiness.values());
+}
+
+export type PlateListItem = {
+  plateId: string;
+  slug: string;
+  capability: "qr" | "nfc" | "combo";
+  status: "unassigned" | "active" | "suspended";
+  businessId: string | null;
+  businessName: string | null;
+  branchId: string | null;
+  branchName: string | null;
+  batchId: string | null;
+  batchName: string | null;
+};
+
+export async function listPlates(): Promise<PlateListItem[]> {
+  await requirePlatformAdmin();
+
+  return db
+    .select({
+      plateId: plates.id,
+      slug: plates.slug,
+      capability: plates.capability,
+      status: plates.status,
+      businessId: businesses.id,
+      businessName: businesses.name,
+      branchId: branches.id,
+      branchName: branches.name,
+      batchId: batches.id,
+      batchName: batches.name,
+    })
+    .from(plates)
+    .leftJoin(businesses, eq(plates.businessId, businesses.id))
+    .leftJoin(branches, eq(plates.branchId, branches.id))
+    .leftJoin(batches, eq(plates.batchId, batches.id))
+    .orderBy(plates.status, plates.slug);
+}
+
+// Atomic check-and-set via the WHERE clause (status = "unassigned"),
+// not a separate select-then-update — avoids a TOCTOU race against a
+// concurrent assignment of the same plate without needing a transaction
+// (this driver doesn't support them, see PROJECT_FACTS.md).
+export async function assignPlateToBusiness(input: { plateId: string; businessId: string }) {
+  await requirePlatformAdmin();
+
+  if (!UUID_PATTERN.test(input.plateId)) {
+    throw new BusinessManagementError("That plate no longer exists.");
+  }
+
+  try {
+    const [updated] = await db
+      .update(plates)
+      .set({ businessId: input.businessId, status: "active" })
+      .where(and(eq(plates.id, input.plateId), eq(plates.status, "unassigned")))
+      .returning({ id: plates.id });
+
+    if (!updated) {
+      // Either the plate doesn't exist, or it's no longer unassigned
+      // (already assigned, possibly by a concurrent request) — both
+      // collapse to the same message since the caller's next step is
+      // the same either way: reload the list and check its current state.
+      throw new BusinessManagementError("This plate no longer exists or is no longer unassigned.");
+    }
+    return updated;
+  } catch (err) {
+    if (err instanceof BusinessManagementError) {
+      throw err;
+    }
+    if (isPgError(err, PG_FOREIGN_KEY_VIOLATION)) {
+      throw new BusinessManagementError("That business no longer exists.");
+    }
+    throw err;
+  }
+}
+
+// Separate from assignment on purpose — branch is scoped to whichever
+// business a plate already belongs to, and a plain server-rendered form
+// can't offer a dependent business->branch dropdown without client JS.
+// Splitting it into its own action (business first, branch after) also
+// doubles as the way to change or clear an already-assigned plate's
+// branch later, not just set it once at assignment time.
+export async function setPlateBranch(input: { plateId: string; branchId: string | null }) {
+  await requirePlatformAdmin();
+
+  if (!UUID_PATTERN.test(input.plateId)) {
+    throw new BusinessManagementError("That plate no longer exists.");
+  }
+
+  const [plate] = await db.select({ businessId: plates.businessId }).from(plates).where(eq(plates.id, input.plateId));
+  if (!plate) {
+    throw new BusinessManagementError("That plate no longer exists.");
+  }
+  if (!plate.businessId) {
+    throw new BusinessManagementError("Assign this plate to a business before setting its branch.");
+  }
+
+  if (input.branchId) {
+    if (!UUID_PATTERN.test(input.branchId)) {
+      throw new BusinessManagementError("That branch no longer exists.");
+    }
+    const [branch] = await db
+      .select({ businessId: branches.businessId })
+      .from(branches)
+      .where(eq(branches.id, input.branchId));
+    if (!branch) {
+      throw new BusinessManagementError("That branch no longer exists.");
+    }
+    if (branch.businessId !== plate.businessId) {
+      throw new BusinessManagementError("That branch doesn't belong to this plate's business.");
+    }
+  }
+
+  await db.update(plates).set({ branchId: input.branchId }).where(eq(plates.id, input.plateId));
+}
+
+export async function updatePlateCapability(input: {
+  plateId: string;
+  capability: "qr" | "nfc" | "combo";
+}) {
+  await requirePlatformAdmin();
+
+  if (!UUID_PATTERN.test(input.plateId)) {
+    throw new BusinessManagementError("That plate no longer exists.");
+  }
+
+  const [updated] = await db
+    .update(plates)
+    .set({ capability: input.capability })
+    .where(eq(plates.id, input.plateId))
+    .returning({ id: plates.id });
+  if (!updated) {
+    throw new BusinessManagementError("That plate no longer exists.");
+  }
+  return updated;
+}
+
+// Can only move between active <-> suspended, never touch an unassigned
+// plate — enforced atomically via the WHERE clause (same pattern as
+// assignPlateToBusiness), since "suspend" only makes sense for a plate
+// that was actually active for some business.
+export async function setPlateStatus(input: { plateId: string; status: "active" | "suspended" }) {
+  await requirePlatformAdmin();
+
+  if (!UUID_PATTERN.test(input.plateId)) {
+    throw new BusinessManagementError("That plate no longer exists.");
+  }
+
+  const [updated] = await db
+    .update(plates)
+    .set({ status: input.status })
+    .where(and(eq(plates.id, input.plateId), ne(plates.status, "unassigned")))
+    .returning({ id: plates.id });
+  if (!updated) {
+    throw new BusinessManagementError(
+      "This plate no longer exists or hasn't been assigned to a business yet."
+    );
+  }
+  return updated;
 }

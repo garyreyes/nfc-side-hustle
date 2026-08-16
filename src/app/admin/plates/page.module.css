@@ -1,0 +1,97 @@
+.filterNav {
+  display: flex;
+  gap: var(--space-2);
+  margin-bottom: var(--space-5);
+}
+
+.filterLink {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-ink-secondary);
+  padding: var(--space-2) var(--space-4);
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+}
+
+.filterLink:hover {
+  background: var(--color-surface-sunken);
+}
+
+.filterLinkActive {
+  color: var(--color-ink-on-accent);
+  background: var(--color-accent);
+  border-color: var(--color-accent);
+}
+
+.plateList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.plateCard {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  padding: var(--space-5);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-5);
+}
+
+.plateIdentity {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 160px;
+}
+
+.plateSlug {
+  font-size: 15px;
+  font-weight: 650;
+}
+
+.plateMeta {
+  font-size: 12px;
+  color: var(--color-ink-muted);
+}
+
+.badgeRow {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.plateActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-4);
+  align-items: flex-end;
+  margin-left: auto;
+}
+
+.actionGroup {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.actionLabel {
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--color-ink-muted);
+}
+
+.inlineForm {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.assignedLine {
+  font-size: 14px;
+  font-weight: 600;
+}
