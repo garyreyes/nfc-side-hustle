@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getCardWithBusinessBySlug, logScanEvent } from "@/features/scan-tracking/api";
+import { getPlateWithBusinessBySlug, logScanEvent } from "@/features/scan-tracking/api";
 import { getClientIp, isRateLimited } from "@/lib/rate-limit";
 
 export async function GET(
@@ -13,23 +13,23 @@ export async function GET(
   }
 
   const { slug } = await params;
-  const card = await getCardWithBusinessBySlug(slug);
+  const plate = await getPlateWithBusinessBySlug(slug);
 
-  if (!card) {
-    return new NextResponse("Card not found", { status: 404 });
+  if (!plate) {
+    return new NextResponse("Plate not found", { status: 404 });
   }
 
   let redirectUrl: URL;
   try {
-    redirectUrl = new URL(card.googleReviewUrl);
+    redirectUrl = new URL(plate.googleReviewUrl);
   } catch {
-    console.error(`Invalid googleReviewUrl for card ${card.cardId}: ${card.googleReviewUrl}`);
-    return new NextResponse("This card isn't set up correctly. Please contact the business.", {
+    console.error(`Invalid googleReviewUrl for plate ${plate.plateId}: ${plate.googleReviewUrl}`);
+    return new NextResponse("This plate isn't set up correctly. Please contact the business.", {
       status: 500,
     });
   }
 
-  await logScanEvent(card.cardId);
+  await logScanEvent(plate.plateId);
 
   return NextResponse.redirect(redirectUrl, 302);
 }

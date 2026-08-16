@@ -1,35 +1,35 @@
 import "server-only";
 import { eq } from "drizzle-orm";
 import { db } from "@/lib/db/client";
-import { branches, businesses, cards, scanEvents } from "@/lib/db/schema";
+import { branches, businesses, plates, scanEvents } from "@/lib/db/schema";
 
-export async function getCardWithBusinessBySlug(slug: string) {
+export async function getPlateWithBusinessBySlug(slug: string) {
   const [result] = await db
     .select({
-      cardId: cards.id,
+      plateId: plates.id,
       businessGoogleReviewUrl: businesses.googleReviewUrl,
       branchGoogleReviewUrl: branches.googleReviewUrl,
     })
-    .from(cards)
-    .innerJoin(businesses, eq(cards.businessId, businesses.id))
-    // Left join, not inner — cards.branchId is nullable, so a branch-less
-    // card must still resolve (falling back to the business's URL below).
-    .leftJoin(branches, eq(cards.branchId, branches.id))
-    .where(eq(cards.slug, slug));
+    .from(plates)
+    .innerJoin(businesses, eq(plates.businessId, businesses.id))
+    // Left join, not inner — plates.branchId is nullable, so a branch-less
+    // plate must still resolve (falling back to the business's URL below).
+    .leftJoin(branches, eq(plates.branchId, branches.id))
+    .where(eq(plates.slug, slug));
 
   if (!result) {
     return null;
   }
 
   return {
-    cardId: result.cardId,
+    plateId: result.plateId,
     googleReviewUrl: result.branchGoogleReviewUrl ?? result.businessGoogleReviewUrl,
   };
 }
 
-export async function logScanEvent(cardId: string) {
+export async function logScanEvent(plateId: string) {
   try {
-    await db.insert(scanEvents).values({ cardId });
+    await db.insert(scanEvents).values({ plateId });
   } catch (err) {
     console.error("Failed to log scan event", err);
   }

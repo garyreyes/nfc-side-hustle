@@ -3,7 +3,7 @@ import { eq } from "drizzle-orm";
 import { requirePlatformAdmin } from "@/lib/auth/dal";
 import { hashPassword } from "@/lib/auth/passwords";
 import { db } from "@/lib/db/client";
-import { branches, businesses, cards, users } from "@/lib/db/schema";
+import { branches, businesses, plates, users } from "@/lib/db/schema";
 import { isValidSlug } from "@/lib/slug";
 
 export class BusinessManagementError extends Error {}
@@ -55,14 +55,14 @@ export async function createBusiness(input: { name: string; googleReviewUrl: str
 export async function isSlugTaken(slug: string): Promise<boolean> {
   await requirePlatformAdmin();
 
-  const [existing] = await db.select().from(cards).where(eq(cards.slug, slug));
+  const [existing] = await db.select().from(plates).where(eq(plates.slug, slug));
   return !!existing;
 }
 
-export async function createCard(input: {
+export async function createPlate(input: {
   businessId: string;
   slug: string;
-  type?: "qr" | "nfc";
+  capability?: "qr" | "nfc" | "combo";
   branchId?: string;
 }) {
   await requirePlatformAdmin();
@@ -77,9 +77,9 @@ export async function createCard(input: {
 
   // If a branch is given, verify it actually belongs to this business
   // before inserting — defense in depth against an admin typo or a
-  // tampered form attaching a card to a different business's branch.
+  // tampered form attaching a plate to a different business's branch.
   // The FK alone only guarantees the branch exists, not that it belongs
-  // to the business the card is being created under.
+  // to the business the plate is being created under.
   if (input.branchId) {
     if (!UUID_PATTERN.test(input.branchId)) {
       throw new BusinessManagementError("That branch no longer exists.");
@@ -98,26 +98,26 @@ export async function createCard(input: {
 
   // Let the database's own constraints be the source of truth rather than
   // a select-then-insert check, which has a race window between two
-  // concurrent createCard calls for the same slug (realistic here, since
+  // concurrent createPlate calls for the same slug (realistic here, since
   // access is a single shared admin password with no per-user session
   // isolation). Both the slug uniqueness and businessId foreign-key
   // constraints are enforced atomically by Postgres on the insert itself.
-  // Callers that create a business alongside a card (e.g. the admin form's
-  // Server Action) should still pre-check isSlugTaken() before creating
-  // the business, so an ordinary duplicate-slug typo never leaves an
-  // orphan business row — this catch is the last-resort safety net for
-  // the genuinely rare case of two concurrent submissions racing.
+  // Callers that create a business alongside a plate (e.g. the admin
+  // form's Server Action) should still pre-check isSlugTaken() before
+  // creating the business, so an ordinary duplicate-slug typo never
+  // leaves an orphan business row — this catch is the last-resort safety
+  // net for the genuinely rare case of two concurrent submissions racing.
   try {
-    const [card] = await db
-      .insert(cards)
+    const [plate] = await db
+      .insert(plates)
       .values({
         businessId: input.businessId,
         slug,
-        type: input.type ?? "qr",
+        capability: input.capability ?? "qr",
         branchId: input.branchId,
       })
       .returning();
-    return card;
+    return plate;
   } catch (err) {
     if (isPgError(err, PG_UNIQUE_VIOLATION)) {
       throw new BusinessManagementError(`Slug "${slug}" is already in use.`);
@@ -240,16 +240,16 @@ export async function createBusinessOwner(input: {
   }
 }
 
-export type BusinessWithCards = {
+export type BusinessWithPlates = {
   businessId: string;
   name: string;
   googleReviewUrl: string;
   ownerEmail: string | null;
-  cards: { cardId: string; slug: string; type: "qr" | "nfc"; branchId: string | null }[];
+  plates: { plateId: string; slug: string; capability: "qr" | "nfc" | "combo"; branchId: string | null }[];
   branches: { branchId: string; name: string; googleReviewUrl: string }[];
 };
 
-export async function listBusinesses(): Promise<BusinessWithCards[]> {
+export async function listBusinesses(): Promise<BusinessWithPlates[]> {
   await requirePlatformAdmin();
 
   const rows = await db
@@ -258,21 +258,21 @@ export async function listBusinesses(): Promise<BusinessWithCards[]> {
       name: businesses.name,
       googleReviewUrl: businesses.googleReviewUrl,
       ownerEmail: users.email,
-      cardId: cards.id,
-      slug: cards.slug,
-      cardType: cards.type,
-      cardBranchId: cards.branchId,
+      plateId: plates.id,
+      slug: plates.slug,
+      plateCapability: plates.capability,
+      plateBranchId: plates.branchId,
     })
     .from(businesses)
-    .leftJoin(cards, eq(cards.businessId, businesses.id))
+    .leftJoin(plates, eq(plates.businessId, businesses.id))
     .leftJoin(users, eq(users.id, businesses.ownerId));
 
   // A separate query rather than also joining branches onto the query
-  // above — that join only surfaces branches that already have a card
+  // above — that join only surfaces branches that already have a plate
   // pointing at them, but the branch list/selector needs every branch a
-  // business has, including ones with no card yet. No transaction support
+  // business has, including ones with no plate yet. No transaction support
   // (see PROJECT_FACTS.md), so this is two plain sequential selects
-  // merged in JS, same pattern already used for cards/users above.
+  // merged in JS, same pattern already used for plates/users above.
   const branchRows = await db
     .select({
       businessId: branches.businessId,
@@ -282,14 +282,14 @@ export async function listBusinesses(): Promise<BusinessWithCards[]> {
     })
     .from(branches);
 
-  const branchesByBusiness = new Map<string, BusinessWithCards["branches"]>();
+  const branchesByBusiness = new Map<string, BusinessWithPlates["branches"]>();
   for (const row of branchRows) {
     const list = branchesByBusiness.get(row.businessId) ?? [];
     list.push({ branchId: row.branchId, name: row.name, googleReviewUrl: row.googleReviewUrl });
     branchesByBusiness.set(row.businessId, list);
   }
 
-  const byBusiness = new Map<string, BusinessWithCards>();
+  const byBusiness = new Map<string, BusinessWithPlates>();
   for (const row of rows) {
     let business = byBusiness.get(row.businessId);
     if (!business) {
@@ -298,19 +298,19 @@ export async function listBusinesses(): Promise<BusinessWithCards[]> {
         name: row.name,
         googleReviewUrl: row.googleReviewUrl,
         ownerEmail: row.ownerEmail,
-        cards: [],
+        plates: [],
         branches: branchesByBusiness.get(row.businessId) ?? [],
       };
       byBusiness.set(row.businessId, business);
     }
-    // LEFT JOIN produces a row with null card columns for a business with
-    // no cards yet (the accepted orphan case) — don't add a fake card for it.
-    if (row.cardId && row.slug && row.cardType) {
-      business.cards.push({
-        cardId: row.cardId,
+    // LEFT JOIN produces a row with null plate columns for a business with
+    // no plates yet (the accepted orphan case) — don't add a fake plate for it.
+    if (row.plateId && row.slug && row.plateCapability) {
+      business.plates.push({
+        plateId: row.plateId,
         slug: row.slug,
-        type: row.cardType,
-        branchId: row.cardBranchId,
+        capability: row.plateCapability,
+        branchId: row.plateBranchId,
       });
     }
   }

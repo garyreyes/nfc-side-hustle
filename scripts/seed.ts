@@ -1,17 +1,17 @@
 import { eq } from "drizzle-orm";
 import { db } from "../src/lib/db/client";
-import { businesses, cards } from "../src/lib/db/schema";
+import { businesses, plates } from "../src/lib/db/schema";
 
 const SLUG = "saffron";
 
 async function seed() {
-  const [existingCard] = await db
+  const [existingPlate] = await db
     .select()
-    .from(cards)
-    .where(eq(cards.slug, SLUG));
+    .from(plates)
+    .where(eq(plates.slug, SLUG));
 
-  if (existingCard) {
-    console.log(`Card with slug "${SLUG}" already exists, skipping seed.`);
+  if (existingPlate) {
+    console.log(`Plate with slug "${SLUG}" already exists, skipping seed.`);
     return;
   }
 
@@ -23,17 +23,17 @@ async function seed() {
     })
     .returning();
 
-  const [card] = await db
-    .insert(cards)
+  const [plate] = await db
+    .insert(plates)
     .values({
       businessId: business.id,
       slug: SLUG,
-      type: "qr",
+      capability: "qr",
     })
     .returning();
 
   console.log("Seeded business:", business);
-  console.log("Seeded card:", card);
+  console.log("Seeded plate:", plate);
 }
 
 seed()

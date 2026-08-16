@@ -50,7 +50,7 @@ export default async function Home({
           <>
             <div className={styles.heading}>
               <h1 className={styles.title}>Log in</h1>
-              <p className={styles.subtitle}>Manage your review cards and scan activity.</p>
+              <p className={styles.subtitle}>Manage your review plates and scan activity.</p>
             </div>
 
             {error && <p className={formStyles.errorBanner}>{error}</p>}

@@ -11,7 +11,7 @@ async function verifySlugResolves(url: string) {
   if (response.status !== 302) {
     throw new Error(
       `${url} did not return a 302 redirect (got ${response.status}). ` +
-        `Refusing to generate a QR for a slug that doesn't resolve to a real card.`
+        `Refusing to generate a QR for a slug that doesn't resolve to a real plate.`
     );
   }
 }

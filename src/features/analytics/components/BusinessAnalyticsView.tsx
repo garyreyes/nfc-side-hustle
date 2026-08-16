@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { getBranchScanBreakdown, getScanBreakdownByCardType, getScanTimeSeries } from "../api";
+import { getBranchScanBreakdown, getScanBreakdownByCapability, getScanTimeSeries } from "../api";
 import type { ScanRangeDays } from "../constants";
 import styles from "./BusinessAnalyticsView.module.css";
 import tableStyles from "@/shared/ui/table.module.css";
@@ -28,7 +28,7 @@ export async function BusinessAnalyticsView({
 }) {
   const [timeSeries, breakdown, branchBreakdown] = await Promise.all([
     getScanTimeSeries(businessId, days),
-    getScanBreakdownByCardType(businessId),
+    getScanBreakdownByCapability(businessId),
     getBranchScanBreakdown(businessId),
   ]);
 
@@ -57,11 +57,11 @@ export async function BusinessAnalyticsView({
       </div>
 
       <div className={styles.tableCard}>
-        <h2 className={styles.sectionTitle}>By card type</h2>
+        <h2 className={styles.sectionTitle}>By capability</h2>
         <table className={tableStyles.table}>
           <thead>
             <tr>
-              <th scope="col">Type</th>
+              <th scope="col">Capability</th>
               <th scope="col" data-align="right">
                 Scans
               </th>
@@ -69,8 +69,8 @@ export async function BusinessAnalyticsView({
           </thead>
           <tbody>
             {breakdown.map((row) => (
-              <tr key={row.type}>
-                <td>{row.type}</td>
+              <tr key={row.capability}>
+                <td>{row.capability}</td>
                 <td data-align="right">{row.count}</td>
               </tr>
             ))}

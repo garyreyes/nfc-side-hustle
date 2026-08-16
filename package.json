@@ -14,7 +14,8 @@
     "db:migrate": "drizzle-kit migrate",
     "db:seed": "tsx --env-file=.env.local scripts/seed.ts",
     "admin:create": "tsx --env-file=.env.local scripts/create-admin.ts",
-    "qr:generate": "tsx scripts/generate-qr.ts"
+    "qr:generate": "tsx scripts/generate-qr.ts",
+    "batch:generate": "tsx scripts/generate-batch.ts"
   },
   "dependencies": {
     "@neondatabase/serverless": "^1.1.0",

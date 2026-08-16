@@ -438,9 +438,110 @@ src/
     admin/businesses/page.tsx               # manage branches per business
 ```
 
+## V6 Architecture — Plate Inventory & Reseller Model
+
+V6 turns the platform from "provision one card when a business signs up"
+into a **manufacture-first reseller model**: plates (QR/NFC hardware) are
+bulk-ordered and exist as inventory *before* any business owns one, then
+get assigned at time of sale during door-to-door/cold-call distribution.
+This is the first version driven by a real hardware supply chain rather
+than pure software scope.
+
+**Renamed: `Card` → `Plate`.** Chosen deliberately over keeping the old
+name, even though it touches schema, every `features/` module, and the
+live admin UI — "Plate" is the term used with suppliers and going forward
+for the physical product itself, and keeping two names for the same
+concept (DB says Card, supplier/you say Plate) was judged a worse
+long-term cost than one rename now, while the surface area is still
+small (one physical product line, no partner integrations depending on
+the old name).
+
+```
+Business  (unchanged)
+Branch    (unchanged)
+Batch     (id, name, orderedAt)                                    [NEW]
+Plate     (id, businessId -> Business, nullable, branchId -> Branch,
+           nullable, slug, capability: "qr"|"nfc"|"combo",
+           status: "unassigned"|"active"|"suspended", batchId -> Batch,
+           nullable)                                    [renamed from Card; +capability(was type)+status+batchId, businessId now nullable]
+ScanEvent (id, plateId, scannedAt,
+           interactionType: "qr"|"nfc"|"unknown")        [+interactionType]
+
+Batch    1---* Plate      (which manufacturing order a physical unit came from)
+Business 1---* Plate      (unchanged relationship, but no longer required at creation)
+Branch   1---* Plate      (unchanged)
+Plate    1---* ScanEvent
+```
+
+**Inventory lifecycle** (new concept): a plate is created `unassigned`
+(no business yet) when a batch arrives, becomes `active` when an admin
+assigns it to a business (+ optional branch) during a sale, and can be
+manually flipped to `suspended` by the admin at any time — e.g. a client
+stops paying. **No billing/payment system drives this** — suspension is
+a deliberate manual toggle only, matching the simplicity of everything
+else in this app; automatic billing-triggered suspension is explicitly
+out of scope until there's a real need for it.
+
+**`capability` replaces `type`, and is editable after creation** — unlike
+V1–V5's `type`, which was set once and never changed, `capability` can be
+updated post-deployment (e.g. an NFC chip fails in the field and the
+plate becomes effectively QR-only). `combo` is a new third value (both
+QR and NFC on one physical unit).
+
+**Real QR-vs-NFC attribution, finally.** V1's `Card.type` recorded which
+*kind* of card existed, but nothing ever detected which channel a given
+scan actually came through — a combo plate's QR code and NFC chip point
+at the identical URL, so the server had no way to tell them apart. V6
+fixes this with a `?src=qr` / `?src=nfc` query marker baked differently
+into the printed QR vs. the NFC NDEF payload at provisioning time; `GET
+/r/[slug]` reads it and logs the real `interactionType` on the
+`ScanEvent`. Absence of the marker (pre-V6 cards, or a marker stripped by
+some client) logs as `"unknown"` rather than guessing.
+
+**Redirect resolution is unchanged**: `branch?.googleReviewUrl ??
+business.googleReviewUrl`, still Google-review-only. No generic
+per-plate `target_url` override — deliberately deferred until a menu or
+website destination is a real, scheduled feature, not built speculatively
+now.
+
+**Unassigned/suspended plates need their own redirect behavior**: today
+every card resolves to a real business. V6 must handle a slug whose plate
+is `unassigned` (never yet sold — show a distinct "not yet activated"
+response) or `suspended` (was active, paused — a different message, not
+the same one) instead of the generic 500 used for a malformed
+`googleReviewUrl`.
+
+**Permissions: platform_admin only, no new business_owner capability** —
+same pattern as V5. Assigning/suspending plates, managing batches, and
+editing capability are all platform_admin-exclusive; business_owner
+stays read-only, now also seeing a qr-vs-nfc channel breakdown on their
+own dashboard once real `interactionType` data exists.
+
+**Deliberately not doing in V6**: no billing/payment system, no custom
+domain (staying on the free `.vercel.app` subdomain), no generic
+redirect target beyond Google review links, no automated Alibaba/VDP
+integration — batch tooling is a local TypeScript script producing files
+a human sends to a supplier by hand, not an API integration.
+
+Folder structure additions/renames for V6:
+```
+src/
+  lib/db/schema.ts                          # cards -> plates rename; +status, +batches, capability(was type); scanEvents +interactionType
+  features/
+    business-management/                    # api.ts: createCard -> createPlate; +status/capability transitions, batch assignment
+    analytics/
+      api.ts                                # + qr-vs-nfc channel breakdown query
+      components/BusinessAnalyticsView.tsx   # + channel breakdown section
+  app/
+    r/[slug]/route.ts                       # reads ?src= marker, logs interactionType; handles unassigned/suspended
+    admin/plates/page.tsx                   # NEW — inventory: filter by status/batch, assign/suspend, edit capability
+scripts/
+  generate-batch.ts                         # NEW — bulk slug + QR + manifest + spec-sheet generator for a physical order
+```
+
 ## Roadmap context
 
-This is Version 5 of 5 from the project roadmap:
+This is Version 6 of 6 from the project roadmap:
 1. V1 — one business, one QR code, redirect + log ✅
 2. V2 — multiple businesses, routing (already works), admin CRUD
    (Create + Read) ✅
@@ -448,10 +549,14 @@ This is Version 5 of 5 from the project roadmap:
 4. V4 — real accounts (platform admin + business owners), database
    sessions, DAL-enforced authorization, replaces V2's Basic Auth
    entirely ✅
-5. **V5 (this doc)** — optional per-branch locations, each with its own
-   review URL and scan tracking, rolling up into the existing
-   per-business dashboard
+5. V5 — optional per-branch locations, each with its own review URL and
+   scan tracking, rolling up into the existing per-business dashboard ✅
+6. **V6 (this doc)** — plate inventory & reseller model: bulk-manufactured
+   hardware exists before a business owns it, real qr-vs-nfc attribution,
+   manual suspend/reassign lifecycle
 
-The entity/folder choices from V1 were made specifically so V2–V5
-extend this structure rather than requiring a rebuild — V5 continues
-that: no migration, no folder restructure, purely additive.
+The entity/folder choices from V1 were made specifically so V2–V6 extend
+this structure rather than requiring a rebuild — V6 continues that in
+spirit (same folders, same patterns) even though the Card→Plate rename
+and the nullable `businessId` are the first genuinely structural changes
+since V4's auth overhaul.
