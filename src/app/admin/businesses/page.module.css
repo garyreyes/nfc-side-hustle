@@ -22,7 +22,9 @@
 }
 
 .businessName {
-  font-size: 17px;
+  /* Matches the documented card/section-title step (15px/650) — a
+     business record plays the same "titled block" role as a Card. */
+  font-size: 15px;
   font-weight: 650;
 }
 

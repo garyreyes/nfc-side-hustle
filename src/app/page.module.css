@@ -41,7 +41,9 @@
 }
 
 .title {
-  font-size: 20px;
+  /* Matches the documented page-title step (22px) — this h1 plays the
+     same "names the screen" role as AppShell's page header. */
+  font-size: 22px;
 }
 
 .subtitle {

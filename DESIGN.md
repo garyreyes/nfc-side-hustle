@@ -19,21 +19,44 @@ colors:
   danger-soft: "#fbeaea"
   danger-border: "#eecaca"
 typography:
+  scale:
+    label-sm: "12px"
+    label-lg: "13px"
+    body-compact: "14px"
+    body: "15px"
+    heading-card: "15px"
+    heading-page: "22px"
+    stat-value: "28px"
+    icon-glyph-sidebar: "14px"
+    icon-glyph-login: "16px"
   body:
     fontFamily: "Hanken Grotesk, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif"
     fontSize: "15px"
+    fontSizeCompact: "14px"
     fontWeight: 400
     lineHeight: 1.5
   heading:
     fontFamily: "Hanken Grotesk, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif"
+    fontSizePage: "22px"
+    fontSizeCard: "15px"
     fontWeight: 650
     lineHeight: 1.2
     letterSpacing: "-0.01em"
   label:
     fontFamily: "Hanken Grotesk, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif"
     fontSize: "12px"
+    fontSizeLarge: "13px"
     fontWeight: 650
     letterSpacing: "0.02em"
+  statValue:
+    fontFamily: "Hanken Grotesk, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif"
+    fontSize: "28px"
+    fontWeight: 700
+    letterSpacing: "-0.02em"
+  iconGlyph:
+    fontSizeSidebarMark: "14px"
+    fontSizeLoginMark: "16px"
+    fontWeight: 700
 rounded:
   sm: "8px"
   md: "12px"
