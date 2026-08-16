@@ -3,8 +3,8 @@ import { getSessionIdFromCookie } from "@/lib/auth/session";
 
 // Optimistic only, per Next's own current authentication guidance: this
 // checks whether a signed session cookie is present and not expired, so
-// an unauthenticated visitor gets redirected to /login without an extra
-// round trip. It deliberately does NOT query the database and does NOT
+// an unauthenticated visitor gets redirected to / (the login page) without
+// an extra round trip. It deliberately does NOT query the database and does NOT
 // know the session's role — Proxy runs on every request (including
 // prefetches) and a DB lookup here would be a real performance cost, not
 // just an unnecessary one. The actual authorization boundary (is this
@@ -21,7 +21,7 @@ export async function proxy(request: NextRequest) {
   const sessionId = await getSessionIdFromCookie();
 
   if (!sessionId) {
-    return NextResponse.redirect(new URL("/login", request.url));
+    return NextResponse.redirect(new URL("/", request.url));
   }
 
   return NextResponse.next();

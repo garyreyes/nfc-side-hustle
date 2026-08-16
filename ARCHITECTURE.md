@@ -268,7 +268,8 @@ loss, no migration risk to existing rows.
 convention): database sessions, not stateless JWTs — matches the
 self-rolled, revocable direction chosen over an auth library/provider.
 `proxy.ts` performs only *optimistic* checks (read the cookie, redirect
-to `/login` for UX) — it is explicitly **not** the security boundary.
+to `/` — the login page — for UX) — it is explicitly **not** the
+security boundary.
 The real enforcement is a Data Access Layer (`lib/auth/dal.ts`,
 `verifySession()`) called inside every Server Component, Server
 Action, and query function that touches user-scoped data. This is a

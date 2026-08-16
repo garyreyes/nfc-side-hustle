@@ -2,6 +2,39 @@
 
 ## Unreleased
 
+### 2026-08-16 — Login page moved to root; login now redirects straight to the dashboard
+Outside the versioned V1-V5 roadmap (a fix, not a new phase). The
+production root URL (`/`) had never been touched since `create-next-app`
+scaffolded it — it still showed the default Next.js starter page, even
+though a real, working login page already existed at `/login`. Moved
+that page's logic to `/` as-is and deleted `/login` entirely (plus the
+now-orphaned `page.module.css`); updated every hardcoded `/login`
+redirect target (`proxy.ts`, `lib/auth/dal.ts`,
+`features/auth/actions.ts`) to `/`.
+
+Also fixed the login flow itself: a successful login used to redirect
+back to the login page, which then showed a "logged in as X, click here
+to go to your dashboard" link the user had to click manually. It now
+redirects straight to the role-appropriate dashboard
+(`/admin/businesses` for platform_admin, `/dashboard` for
+business_owner) — no extra click.
+
+Reviewer sub-agent found no code bugs (no redirect loop, rate limiting
+untouched, `force-dynamic` still correctly justified); it did catch two
+stale `/login` references left behind in `ARCHITECTURE.md` and
+`PROJECT_FACTS.md`'s current-state documentation — both fixed.
+
+Verified end-to-end against real production data: unauthenticated
+visits to `/admin/businesses` and `/dashboard` both redirect to `/`;
+old `/login` now 404s; logging in as the real platform_admin account
+redirects straight to `/admin/businesses` (confirmed via the `Location`
+header); the "already logged in" branch and logout both work, with
+logout confirmed to actually clear the session. Business_owner redirect
+verified via a temporary throwaway test business + owner account
+(logged in, confirmed redirect to `/dashboard` and correct rendering,
+then fully deleted and confirmed absent afterward — no real account was
+touched; Saffron still has no owner, unchanged).
+
 ### 2026-08-16 — Per-branch dashboard breakdown (5d) — V5 complete, V1-V5 roadmap complete
 Last sub-phase of V5. Both the admin's per-business dashboard
 (`/admin/dashboard/[businessId]`) and a business owner's own

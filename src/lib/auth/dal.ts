@@ -55,7 +55,7 @@ export const verifySession = cache(async (): Promise<VerifiedSession | null> => 
 export async function requirePlatformAdmin(): Promise<VerifiedSession> {
   const session = await verifySession();
   if (!session || session.role !== "platform_admin") {
-    redirect("/login");
+    redirect("/");
   }
   return session;
 }
@@ -84,7 +84,7 @@ export async function requireOwnedBusiness(): Promise<{
 }> {
   const session = await verifySession();
   if (!session || session.role !== "business_owner") {
-    redirect("/login");
+    redirect("/");
   }
 
   const [owned] = await db
@@ -94,7 +94,7 @@ export async function requireOwnedBusiness(): Promise<{
     .limit(1);
 
   if (!owned) {
-    redirect("/login");
+    redirect("/");
   }
 
   return { session, businessId: owned.id, businessName: owned.name };

@@ -25,7 +25,7 @@ function passwordField(formData: FormData): string {
 export async function loginAction(formData: FormData) {
   const ip = getClientIp(await headers());
   if (isRateLimited(ip)) {
-    redirect(`/login?error=${encodeURIComponent("Too many attempts. Try again in a minute.")}`);
+    redirect(`/?error=${encodeURIComponent("Too many attempts. Try again in a minute.")}`);
   }
 
   const email = formField(formData, "email");
@@ -36,7 +36,7 @@ export async function loginAction(formData: FormData) {
     user = await verifyCredentials(email, password);
   } catch (err) {
     console.error("loginAction: unexpected error verifying credentials", err);
-    redirect(`/login?error=${encodeURIComponent("Something went wrong.")}`);
+    redirect(`/?error=${encodeURIComponent("Something went wrong.")}`);
   }
 
   if (!user) {
@@ -44,22 +44,25 @@ export async function loginAction(formData: FormData) {
     // basic audit trail on failed logins — per ARCHITECTURE.md § V4's
     // security baseline.
     console.error(`loginAction: failed login attempt for "${email}" at ${new Date().toISOString()}`);
-    redirect(`/login?error=${encodeURIComponent("Invalid email or password.")}`);
+    redirect(`/?error=${encodeURIComponent("Invalid email or password.")}`);
   }
 
   try {
     await createSession(user.id);
   } catch (err) {
     console.error("loginAction: unexpected error creating session", err);
-    redirect(`/login?error=${encodeURIComponent("Something went wrong.")}`);
+    redirect(`/?error=${encodeURIComponent("Something went wrong.")}`);
   }
 
-  redirect("/login");
+  // Straight to the right dashboard, not back to the login page — the
+  // whole point of this redirect is that a successful login shouldn't
+  // require an extra manual click to get anywhere useful.
+  redirect(user.role === "platform_admin" ? "/admin/businesses" : "/dashboard");
 }
 
 // POST only, never a GET link — a prefetched <Link> to a GET /logout
 // would silently log users out via Next's own route prefetching.
 export async function logoutAction() {
   await deleteSession();
-  redirect("/login");
+  redirect("/");
 }

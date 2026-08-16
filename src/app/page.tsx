@@ -1,69 +1,54 @@
-import Image from "next/image";
-import styles from "./page.module.css";
+import { loginAction, logoutAction } from "@/features/auth/actions";
+import { verifySession } from "@/lib/auth/dal";
 
-export default function Home() {
+export const dynamic = "force-dynamic";
+
+export default async function Home({
+  searchParams,
+}: {
+  searchParams: Promise<{ error?: string }>;
+}) {
+  const { error } = await searchParams;
+  const session = await verifySession();
+
   return (
-    <div className={styles.page}>
-      <main className={styles.main}>
-        <Image
-          className={styles.logo}
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className={styles.intro}>
-          <h1>
-            To get started, edit the{" "}
-            <code className={styles.code}>page.tsx</code> file.
-          </h1>
+    <main style={{ maxWidth: 400, margin: "0 auto", padding: 24 }}>
+      <h1>Log in</h1>
+
+      {session ? (
+        <div>
           <p>
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              Learning
-            </a>{" "}
-            center.
+            Logged in as <strong>{session.email}</strong> ({session.role})
           </p>
+          <p>
+            <a href={session.role === "platform_admin" ? "/admin/businesses" : "/dashboard"}>
+              Go to {session.role === "platform_admin" ? "admin" : "your dashboard"}
+            </a>
+          </p>
+          <form action={logoutAction}>
+            <button type="submit">Log out</button>
+          </form>
         </div>
-        <div className={styles.ctas}>
-          <a
-            className={styles.primary}
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className={styles.logo}
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={14}
-            />
-            Deploy Now
-          </a>
-          <a
-            className={styles.secondary}
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
-    </div>
+      ) : (
+        <>
+          {error && (
+            <p style={{ color: "#b00020", border: "1px solid #b00020", padding: 8 }}>{error}</p>
+          )}
+          <form action={loginAction} style={{ display: "grid", gap: 8 }}>
+            <label>
+              Email
+              <br />
+              <input type="email" name="email" required />
+            </label>
+            <label>
+              Password
+              <br />
+              <input type="password" name="password" required />
+            </label>
+            <button type="submit">Log in</button>
+          </form>
+        </>
+      )}
+    </main>
   );
 }
