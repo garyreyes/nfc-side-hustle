@@ -46,9 +46,23 @@ now correctly redirects to `/login` (not a misleading generic error)
 and creates no business row. `npm run build` verified both with and
 without `.env.local` present.
 
-**Not yet done, deliberately deferred until after this is verified live
-on Vercel**: removing `ADMIN_USERNAME`/`ADMIN_PASSWORD` from Vercel and
-`.env.local` — see the follow-up entry once that happens.
+Verified live on Vercel before merging: tested the actual PR Preview
+deployment (via Vercel's "Protection Bypass for Automation" secret,
+since Preview URLs are otherwise gated behind Vercel's own SSO) —
+confirmed `proxy.ts` behaves correctly under real Vercel infrastructure
+(the same class of Edge-vs-Node.js concern that broke `timingSafeEqual`
+once before, in 2a), old Basic Auth grants nothing, login/admin
+access/defense-in-depth (via Preview's own `logout` to orphan a session
+server-side, since Preview turned out to use its own separate Neon
+branch rather than the shared one) all work correctly. After merging,
+ran the same smoke test against real production (login, all three
+admin pages, real Saffron data, logout, old Basic Auth still dead) —
+all passed.
+
+### 2026-08-16 — Retire ADMIN_USERNAME/ADMIN_PASSWORD
+Removed from Vercel's env vars and `.env.local` now that 4c is
+confirmed live and stable — nothing in the codebase reads them anymore.
+**V4's cutover from Basic Auth to real sessions is complete.**
 
 ### 2026-08-16 — Login/logout flow (4b)
 Added `features/auth/api.ts` (`verifyCredentials()`), `features/auth/
