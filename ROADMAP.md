@@ -169,7 +169,7 @@ those units can be provisioned.
       `"unknown"`). Also defines distinct redirect behavior for an
       `unassigned` plate (never sold) vs. a `suspended` one (was active,
       paused) instead of reusing the generic malformed-URL 500.
-- [ ] **6c. Bulk batch generator script** — not started
+- [x] **6c. Bulk batch generator script** — done
       TypeScript, extends `scripts/generate-qr.ts`'s slug/QR logic
       (`scripts/generate-batch.ts` already exists as a first pass from
       planning — needs review/hardening as a real sub-phase). Generates

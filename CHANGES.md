@@ -2,6 +2,44 @@
 
 ## Unreleased
 
+### 2026-08-17 — Bulk batch generator script, hardened (6c)
+Third sub-phase of V6. `scripts/generate-batch.ts` existed as a
+first-pass local-file-only generator from planning (before V6a's schema
+existed) — hardened it into the real sub-phase deliverable:
+
+- Count and capability mix are now CLI-configurable
+  (`npm run batch:generate -- <name> [count] [qr|nfc|combo|even]`)
+  instead of hardcoded to 30 units / an even 3-way split, so it can
+  actually serve a real future order (an all-NFC batch, a QR-heavy
+  batch, etc.), not just the one pilot shape it was built to illustrate.
+- **Now creates real database rows**, not just local files: inserts a
+  `batches` row and the generated plates as real `unassigned` rows tied
+  to it, *before* writing any local QR/manifest/spec-sheet output — so a
+  scan against a generated serial resolves as "not yet activated" (6b's
+  real behavior) from the moment the script finishes, never a bare 404,
+  even before the physical hardware exists. DB writes go directly
+  through `db`/schema (same pattern as `scripts/seed.ts`/`create-admin.ts`),
+  not through `business-management/api.ts`'s session-gated functions,
+  since a standalone script has no request/session context to check
+  against — matches this codebase's existing convention for admin-run
+  CLI tools.
+- Batch-name collisions are pre-checked with a clear error rather than
+  silently duplicating or throwing a raw Postgres error. A failure
+  between the batch insert and the plates insert (no transaction support
+  — see `PROJECT_FACTS.md`) can leave an orphaned batch row with zero
+  plates; accepted as the same low-volume, admin-only risk class already
+  established for `createBusinessOwner()`'s two-write sequence, with a
+  clear console message telling the admin to check and clean up manually
+  before retrying.
+
+Verified end-to-end against real production: generated a real 4-plate
+throwaway batch (2 qr, 1 nfc, 1 combo), confirmed the manifest/QR files
+matched the created rows, confirmed a generated serial resolved through
+the live `/r/[slug]` route with the real "not yet activated" message
+(200, not 404) — proving the script's output is immediately live
+inventory, not just paperwork for a future migration. All test rows and
+local files deleted afterward and confirmed absent.
+
 ### 2026-08-17 — Real qr/nfc attribution + unassigned/suspended redirect handling (6b)
 Second sub-phase of V6. No schema change — 6a already shipped the
 columns this reads/writes, so unlike 6a there was no migration/deploy
