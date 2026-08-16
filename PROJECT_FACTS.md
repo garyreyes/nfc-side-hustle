@@ -2,6 +2,30 @@
 
 Durable, project-specific decisions that should survive across sessions.
 
+- `cards.businessId` has no `onDelete` behavior set (defaults to
+  Postgres's restrict/`NO ACTION`) — a business can never actually be
+  deleted while it still has any cards. This predates V5, but V5 added
+  `branches.businessId ON DELETE CASCADE`, which is currently
+  unreachable in practice for the same reason (the `cards.businessId`
+  restrict would block the delete before a branch cascade could ever
+  fire). If a delete-business feature is ever built, these two FK
+  behaviors need to be reconciled together, not just the branches one.
+- Any function taking a raw `id`/`businessId`/`branchId` string
+  destined for a `uuid` column must format-validate it first (the
+  `UUID_PATTERN` regex pattern, already used in both
+  `analytics/api.ts` and `business-management/api.ts`) — a malformed
+  value passed straight into a query throws Postgres's raw
+  `invalid input syntax for type uuid` error (SQLSTATE `22P02`), which
+  `isPgError()` doesn't recognize (it only checks `23505`/`23503`), so
+  it propagates uncaught instead of becoming a clean, user-facing
+  error. Hit and fixed once in `createCard()`'s branch-ownership check
+  (5a) — check for it in any new function taking an id from outside
+  input, especially once forms (5c) start passing user-facing values
+  through.
+- `branches` has no unique constraint on `(businessId, name)` —
+  deliberate, not an oversight. Duplicate branch names under the same
+  business are allowed; nothing in the product requires uniqueness
+  there the way `users.email` or `businesses.ownerId` do.
 - **Vercel Preview deployments use their own separate Neon database
   branch, not the shared production one** — discovered while verifying
   4c on Preview: a session created via login on a Preview URL never

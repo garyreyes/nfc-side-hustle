@@ -119,7 +119,7 @@ tracking. Purely additive: new `Branch` table + `cards.branchId`
 new permission model, `business_owner` stays read-only, no dedicated
 `security-baseline` pass needed.
 
-- [ ] **5a. Schema + branch/card creation logic**
+- [x] **5a. Schema + branch/card creation logic** — done
       New `Branch` table (`id`, `businessId`, `name`,
       `googleReviewUrl`); `cards.branchId` (nullable FK) migration.
       `createBranch()` in `business-management/api.ts`; `createCard()`

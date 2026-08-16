@@ -3,7 +3,7 @@ import { eq } from "drizzle-orm";
 import { requirePlatformAdmin } from "@/lib/auth/dal";
 import { hashPassword } from "@/lib/auth/passwords";
 import { db } from "@/lib/db/client";
-import { businesses, cards, users } from "@/lib/db/schema";
+import { branches, businesses, cards, users } from "@/lib/db/schema";
 import { isValidSlug } from "@/lib/slug";
 
 export class BusinessManagementError extends Error {}
@@ -16,6 +16,13 @@ const MAX_NAME_LENGTH = 200;
 // actually need to check lives at `err.cause.code`, not `err.code`.
 const PG_UNIQUE_VIOLATION = "23505";
 const PG_FOREIGN_KEY_VIOLATION = "23503";
+
+// Matches the pattern already used in features/analytics/api.ts — a
+// malformed id passed straight into a uuid-column query throws a raw
+// "invalid input syntax for type uuid" Postgres error (22P02), which
+// isPgError() doesn't recognize, so it would otherwise propagate as an
+// unhandled error instead of a clean BusinessManagementError.
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 function isPgError(err: unknown, code: string): boolean {
   const cause = err instanceof Error ? err.cause : undefined;
@@ -56,6 +63,7 @@ export async function createCard(input: {
   businessId: string;
   slug: string;
   type?: "qr" | "nfc";
+  branchId?: string;
 }) {
   await requirePlatformAdmin();
 
@@ -65,6 +73,27 @@ export async function createCard(input: {
     throw new BusinessManagementError(
       "Slug must contain only lowercase letters, numbers, and hyphens."
     );
+  }
+
+  // If a branch is given, verify it actually belongs to this business
+  // before inserting — defense in depth against an admin typo or a
+  // tampered form attaching a card to a different business's branch.
+  // The FK alone only guarantees the branch exists, not that it belongs
+  // to the business the card is being created under.
+  if (input.branchId) {
+    if (!UUID_PATTERN.test(input.branchId)) {
+      throw new BusinessManagementError("That branch no longer exists.");
+    }
+    const [branch] = await db
+      .select({ businessId: branches.businessId })
+      .from(branches)
+      .where(eq(branches.id, input.branchId));
+    if (!branch) {
+      throw new BusinessManagementError("That branch no longer exists.");
+    }
+    if (branch.businessId !== input.businessId) {
+      throw new BusinessManagementError("That branch doesn't belong to this business.");
+    }
   }
 
   // Let the database's own constraints be the source of truth rather than
@@ -81,13 +110,55 @@ export async function createCard(input: {
   try {
     const [card] = await db
       .insert(cards)
-      .values({ businessId: input.businessId, slug, type: input.type ?? "qr" })
+      .values({
+        businessId: input.businessId,
+        slug,
+        type: input.type ?? "qr",
+        branchId: input.branchId,
+      })
       .returning();
     return card;
   } catch (err) {
     if (isPgError(err, PG_UNIQUE_VIOLATION)) {
       throw new BusinessManagementError(`Slug "${slug}" is already in use.`);
     }
+    if (isPgError(err, PG_FOREIGN_KEY_VIOLATION)) {
+      throw new BusinessManagementError("That business no longer exists.");
+    }
+    throw err;
+  }
+}
+
+export async function createBranch(input: {
+  businessId: string;
+  name: string;
+  googleReviewUrl: string;
+}) {
+  await requirePlatformAdmin();
+
+  const name = input.name.trim();
+  const googleReviewUrl = input.googleReviewUrl.trim();
+
+  if (!name) {
+    throw new BusinessManagementError("Branch name is required.");
+  }
+  if (name.length > MAX_NAME_LENGTH) {
+    throw new BusinessManagementError(`Branch name must be ${MAX_NAME_LENGTH} characters or fewer.`);
+  }
+
+  try {
+    new URL(googleReviewUrl);
+  } catch {
+    throw new BusinessManagementError("Google review URL must be a valid URL.");
+  }
+
+  try {
+    const [branch] = await db
+      .insert(branches)
+      .values({ businessId: input.businessId, name, googleReviewUrl })
+      .returning();
+    return branch;
+  } catch (err) {
     if (isPgError(err, PG_FOREIGN_KEY_VIOLATION)) {
       throw new BusinessManagementError("That business no longer exists.");
     }
