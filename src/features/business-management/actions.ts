@@ -4,12 +4,16 @@ import { redirect } from "next/navigation";
 import { requirePlatformAdmin } from "@/lib/auth/dal";
 import { isValidSlug } from "@/lib/slug";
 import {
+  assignPlateToBusiness,
   BusinessManagementError,
   createBranch,
   createBusiness,
   createBusinessOwner,
   createPlate,
   isSlugTaken,
+  setPlateBranch,
+  setPlateStatus,
+  updatePlateCapability,
 } from "./api";
 
 // This action is gated by real per-user sessions (V4): src/proxy.ts only
@@ -164,4 +168,91 @@ export async function createPlateAction(businessId: string, formData: FormData) 
   }
 
   redirect("/admin/businesses");
+}
+
+// plateId is bound via .bind() from /admin/plates, same reasoning as
+// addBusinessOwnerAction above.
+export async function assignPlateAction(plateId: string, formData: FormData) {
+  await requirePlatformAdmin();
+
+  const businessId = formField(formData, "businessId");
+  if (!businessId) {
+    redirect(`/admin/plates?error=${encodeURIComponent("Choose a business to assign this plate to.")}`);
+  }
+
+  try {
+    await assignPlateToBusiness({ plateId, businessId });
+  } catch (err) {
+    if (err instanceof BusinessManagementError) {
+      redirect(`/admin/plates?error=${encodeURIComponent(err.message)}`);
+    }
+    console.error("assignPlateAction: unexpected error", err);
+    redirect(`/admin/plates?error=${encodeURIComponent("Something went wrong.")}`);
+  }
+
+  redirect("/admin/plates");
+}
+
+export async function setPlateBranchAction(plateId: string, formData: FormData) {
+  await requirePlatformAdmin();
+
+  const branchId = formField(formData, "branchId");
+
+  try {
+    await setPlateBranch({ plateId, branchId: branchId || null });
+  } catch (err) {
+    if (err instanceof BusinessManagementError) {
+      redirect(`/admin/plates?error=${encodeURIComponent(err.message)}`);
+    }
+    console.error("setPlateBranchAction: unexpected error", err);
+    redirect(`/admin/plates?error=${encodeURIComponent("Something went wrong.")}`);
+  }
+
+  redirect("/admin/plates");
+}
+
+export async function updatePlateCapabilityAction(plateId: string, formData: FormData) {
+  await requirePlatformAdmin();
+
+  const capability = formField(formData, "capability");
+  if (capability !== "qr" && capability !== "nfc" && capability !== "combo") {
+    redirect(`/admin/plates?error=${encodeURIComponent("Invalid capability.")}`);
+  }
+
+  try {
+    await updatePlateCapability({ plateId, capability });
+  } catch (err) {
+    if (err instanceof BusinessManagementError) {
+      redirect(`/admin/plates?error=${encodeURIComponent(err.message)}`);
+    }
+    console.error("updatePlateCapabilityAction: unexpected error", err);
+    redirect(`/admin/plates?error=${encodeURIComponent("Something went wrong.")}`);
+  }
+
+  redirect("/admin/plates");
+}
+
+// plateId and the target status are both bound via .bind() from the
+// page — a single-click toggle, no user-entered fields, so formData
+// itself is unused but still required as the last parameter for a
+// Server Action wired to a <form action={...}>.
+export async function setPlateStatusAction(
+  plateId: string,
+  status: "active" | "suspended",
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- required last param for a Server Action bound to a <form>, not read
+  _formData: FormData
+) {
+  await requirePlatformAdmin();
+
+  try {
+    await setPlateStatus({ plateId, status });
+  } catch (err) {
+    if (err instanceof BusinessManagementError) {
+      redirect(`/admin/plates?error=${encodeURIComponent(err.message)}`);
+    }
+    console.error("setPlateStatusAction: unexpected error", err);
+    redirect(`/admin/plates?error=${encodeURIComponent("Something went wrong.")}`);
+  }
+
+  redirect("/admin/plates");
 }

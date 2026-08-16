@@ -175,7 +175,7 @@ those units can be provisioned.
       planning — needs review/hardening as a real sub-phase). Generates
       unique slugs, QR PNGs, NFC payload text (with the `?src=` marker),
       a manifest.csv, and a spec-sheet for a physical supplier order.
-- [ ] **6d. Admin inventory UI** — not started
+- [x] **6d. Admin inventory UI** — done
       `/admin/plates` — list/filter plates by status/batch, assign an
       `unassigned` plate to a business (+ optional branch) to make it
       `active`, edit `capability`, toggle `active`/`suspended`. This is

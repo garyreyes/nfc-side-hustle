@@ -30,6 +30,7 @@ export default async function AdminBusinessesPage({
       navItems={[
         { label: "Businesses", href: "/admin/businesses", active: true },
         { label: "Dashboard", href: "/admin/dashboard", active: false },
+        { label: "Plates", href: "/admin/plates", active: false },
       ]}
       email={session.email}
       roleLabel="Platform admin"
