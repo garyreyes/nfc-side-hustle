@@ -3,7 +3,13 @@
 import { redirect } from "next/navigation";
 import { requirePlatformAdmin } from "@/lib/auth/dal";
 import { isValidSlug } from "@/lib/slug";
-import { BusinessManagementError, createBusiness, createCard, isSlugTaken } from "./api";
+import {
+  BusinessManagementError,
+  createBusiness,
+  createBusinessOwner,
+  createCard,
+  isSlugTaken,
+} from "./api";
 
 // This action is gated by real per-user sessions (V4): src/proxy.ts only
 // does an optimistic cookie-presence redirect for UX, it is NOT the
@@ -25,12 +31,23 @@ function formField(formData: FormData, key: string): string {
   return typeof value === "string" ? value.trim() : "";
 }
 
+// Unlike formField(), never trims — a leading/trailing space is part of
+// the password as typed. See features/auth/actions.ts's passwordField()
+// for the full reasoning (silently trimming here but not at login time
+// would let an admin lock an owner out of their own account).
+function passwordField(formData: FormData, key: string): string {
+  const value = formData.get(key);
+  return typeof value === "string" ? value : "";
+}
+
 export async function createBusinessAction(formData: FormData) {
   await requirePlatformAdmin();
 
   const name = formField(formData, "name");
   const googleReviewUrl = formField(formData, "googleReviewUrl");
   const slug = formField(formData, "slug");
+  const ownerEmail = formField(formData, "ownerEmail");
+  const ownerPassword = passwordField(formData, "ownerPassword");
 
   // Validate and check slug availability before creating the business
   // row. Without this, an ordinary typo (duplicate or malformed slug) —
@@ -47,14 +64,55 @@ export async function createBusinessAction(formData: FormData) {
     redirect(`/admin/businesses?error=${encodeURIComponent(`Slug "${slug}" is already in use.`)}`);
   }
 
+  // Owner fields are optional, but only together — half-set owner info
+  // would either silently create a password-less account or silently
+  // drop a typed email.
+  if ((ownerEmail && !ownerPassword) || (!ownerEmail && ownerPassword)) {
+    redirect(
+      `/admin/businesses?error=${encodeURIComponent(
+        "Owner email and password must both be provided, or both left blank."
+      )}`
+    );
+  }
+
   try {
     const business = await createBusiness({ name, googleReviewUrl });
     await createCard({ businessId: business.id, slug });
+    if (ownerEmail && ownerPassword) {
+      await createBusinessOwner({ businessId: business.id, email: ownerEmail, password: ownerPassword });
+    }
   } catch (err) {
     if (err instanceof BusinessManagementError) {
       redirect(`/admin/businesses?error=${encodeURIComponent(err.message)}`);
     }
     console.error("createBusinessAction: unexpected error", err);
+    redirect(`/admin/businesses?error=${encodeURIComponent("Something went wrong.")}`);
+  }
+
+  redirect("/admin/businesses");
+}
+
+// businessId is bound via .bind() from the page (see admin/businesses/
+// page.tsx), not read from formData — Next.js encrypts bound Server
+// Action arguments, so it can't be tampered with via the submitted form
+// the way a hidden input could be.
+export async function addBusinessOwnerAction(businessId: string, formData: FormData) {
+  await requirePlatformAdmin();
+
+  const email = formField(formData, "email");
+  const password = passwordField(formData, "password");
+
+  if (!email || !password) {
+    redirect(`/admin/businesses?error=${encodeURIComponent("Owner email and password are required.")}`);
+  }
+
+  try {
+    await createBusinessOwner({ businessId, email, password });
+  } catch (err) {
+    if (err instanceof BusinessManagementError) {
+      redirect(`/admin/businesses?error=${encodeURIComponent(err.message)}`);
+    }
+    console.error("addBusinessOwnerAction: unexpected error", err);
     redirect(`/admin/businesses?error=${encodeURIComponent("Something went wrong.")}`);
   }
 

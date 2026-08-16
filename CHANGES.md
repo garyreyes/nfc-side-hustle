@@ -2,6 +2,54 @@
 
 ## Unreleased
 
+### 2026-08-16 — Business owner accounts + scoped /dashboard (4d) — V4 complete
+The last piece of V4: business owners get their own login showing just
+their own business's data, nothing else. Added `lib/auth/dal.ts`'s
+`requireOwnedBusiness()` (resolves a business_owner's own business from
+their session, never trusts an external businessId) and
+`sessionCanAccessBusiness()` (defense-in-depth check added to
+`analytics/api.ts`'s `getScanTimeSeries()`/`getScanBreakdownByCardType()`
+— platform_admin sees any business, business_owner only their own,
+"doesn't exist" and "not yours" are deliberately indistinguishable from
+outside). `getBusinessScanTotals()` now also requires platform_admin
+(previously had no check at all). Extracted the shared
+`BusinessAnalyticsView` component (chart + range picker + breakdown
+table) so the admin detail page and the new `app/dashboard` render
+identically without duplicating the markup. `business-management/api.ts`
+gained `createBusinessOwner()`, used both when creating a new business
+(optional owner fields) and to retrofit an owner onto an existing one
+(`admin/businesses` shows "Owner: email" or an inline add-owner form).
+`proxy.ts`'s matcher extended to cover `/dashboard`.
+
+Reviewer sub-agent's findings, all fixed: `createBusinessOwner()` had no
+guard against silently reassigning a business that already has an
+owner (a stale second browser tab could overwrite it with no error,
+orphaning the first owner's account) — fixed with a pre-check that
+rejects with a clear error, verified directly by reproducing the exact
+stale-tab scenario against production and confirming no overwrite and
+no orphan account. Also added a DB-level unique constraint on
+`businesses.owner_id` (a real migration, confirmed before running) so
+the documented one-owner-per-business invariant is enforced by
+Postgres, not just app code — Postgres unique constraints permit any
+number of `NULL`s, so this doesn't block businesses without an owner
+yet. Also fixed: the business-linking update didn't check whether it
+actually affected a row; and `/login`'s "already logged in" view had no
+link forward to `/admin/businesses` or `/dashboard` depending on role —
+a freshly-onboarded business owner would have had no way to find their
+own page.
+
+Verified extensively against the real dev server and real production
+database, cleaning up all test data afterward: an admin adding an owner
+to a business that had none; that owner's `/dashboard` correctly
+showing only their own business's real data; that same session
+correctly blocked (307) from all `/admin/*` routes, including the
+admin-only detail page for their own business; the deepest test —
+directly probing the scoped query functions while authenticated as the
+owner, confirming their own business returns data, an unrelated
+business returns `null`, and the same unrelated business returns data
+when requested as platform_admin instead; and the stale-tab
+double-owner scenario correctly rejected after the fix.
+
 ### 2026-08-16 — Cutover: retire Basic Auth, gate /admin/* via sessions (4c)
 The highest-risk change in the project so far: `src/proxy.ts` no longer
 does Basic Auth at all — rewritten to an optimistic-only check (reads

@@ -27,9 +27,25 @@ Durable, project-specific decisions that should survive across sessions.
   `requirePlatformAdmin()` itself first, outside that `try` — otherwise
   its internal `redirect()` can get caught by a generic `catch` and
   silently rerouted to a misleading error instead of `/login`. Hit and
-  fixed once already in `createBusinessAction` (4c); this pattern will
-  recur anywhere `requirePlatformAdmin()`/`verifySession()` gets reused
-  inside a try-wrapped mutation, including 4d.
+  fixed once already in `createBusinessAction` (4c); confirmed correctly
+  followed in 4d's `createBusinessAction` extension and the new
+  `addBusinessOwnerAction`. Keep following it for any future mutation
+  that reuses `requirePlatformAdmin()`/`verifySession()`/
+  `requireOwnedBusiness()`.
+- `businesses.owner_id` has a DB-level `UNIQUE` constraint (added in
+  4d, after the reviewer caught that the documented one-owner-per-
+  business invariant had no enforcement beyond app code) — Postgres
+  unique constraints permit unlimited `NULL`s, so this doesn't restrict
+  how many businesses can have no owner yet. `createBusinessOwner()`
+  also has an app-level pre-check rejecting an attempt to add an owner
+  to a business that already has one (a different, narrower protection
+  than the DB constraint — the constraint stops one user owning two
+  businesses; the pre-check stops a business's existing owner from
+  being silently overwritten).
+- Saffron (the one real business) still has no owner account as of V4's
+  completion — a real owner account for it is a manual follow-up
+  whenever the owner is ready to actually use `/dashboard`, via
+  `/admin/businesses`'s "Add owner" form, not something to script.
 - The real `platform_admin` account exists in production:
   `gary_reyes@dlsu.edu.ph` / `admin123` (same deliberate simplicity as
   the old Basic Auth credentials). Created via `npm run admin:create`,

@@ -32,7 +32,13 @@ export const businesses = pgTable("businesses", {
   // itself (it may have printed QR cards driving real traffic) — set
   // null to return it to the same "no owner yet" state new businesses
   // start in, rather than blocking the delete or cascading.
-  ownerId: uuid("owner_id").references(() => users.id, { onDelete: "set null" }),
+  // .unique() enforces the documented one-owner-per-business (and one-
+  // business-per-owner) invariant at the DB level, not just in app code
+  // — Postgres unique constraints permit any number of NULLs, so this
+  // doesn't block multiple businesses from having no owner yet.
+  ownerId: uuid("owner_id")
+    .unique()
+    .references(() => users.id, { onDelete: "set null" }),
 });
 
 export const cards = pgTable("cards", {

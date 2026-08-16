@@ -101,13 +101,14 @@ folded into the architecture doc and the sub-phases below.
       Vercel + `.env.local` once verified live. Single highest-risk
       sub-phase — the only access-control mechanism this app has ever
       had gets replaced here. Ships only after 4b is proven working.
-- [ ] **4d. Business owner accounts + scoped /dashboard**
+- [x] **4d. Business owner accounts + scoped /dashboard** — done
       Extend business creation to also create/link an owner `User`
       account; add defense-in-depth `businessId` scoping inside
       `analytics/api.ts`'s query functions; build
       `app/dashboard/page.tsx` (business owner's own view, reusing
-      3c's chart/breakdown components). Last sub-phase — V4 complete
-      once this ships.
+      3c's chart/breakdown components).
+
+**Phase 4 (V4) complete.**
 
 ## Phase 5 — V5: Multi-branch hierarchy
 
