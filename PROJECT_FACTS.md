@@ -2,6 +2,20 @@
 
 Durable, project-specific decisions that should survive across sessions.
 
+- **Vercel Preview deployments use their own separate Neon database
+  branch, not the shared production one** — discovered while verifying
+  4c on Preview: a session created via login on a Preview URL never
+  showed up when queried from local scripts (which use `.env.local`'s
+  `DATABASE_URL`, pointing at production). Any future DB-inspecting/
+  mutating script aimed at verifying a Preview deployment must run
+  against Preview's own `DATABASE_URL`, not the local one — or, more
+  simply, drive the test entirely through the deployed app's own
+  routes (e.g. using its `logout` action to delete a session
+  server-side) rather than reaching into the DB directly from outside.
+  Also: Preview URLs are gated behind Vercel's own SSO by default —
+  `curl` needs the `x-vercel-protection-bypass` header with a secret
+  from Project Settings → Deployment Protection → "Protection Bypass
+  for Automation" to reach them at all.
 - `SESSION_SECRET` is set in Vercel's env vars (Preview + Production
   scopes), confirmed by the owner before 4c's cutover — a **different**
   value than the one in `.env.local`, deliberately, since session
@@ -124,12 +138,9 @@ Durable, project-specific decisions that should survive across sessions.
   needing them (e.g. `timingSafeEqual` for auth) must use `proxy.ts`,
   not `middleware.ts`, or it'll silently warn/break. See
   `node_modules/next/dist/docs/.../file-conventions/proxy.md`.
-- `ADMIN_USERNAME`/`ADMIN_PASSWORD` are set in both `.env.local` and
-  Vercel's production env vars (confirmed working live at
-  `nfc-side-hustle.vercel.app/admin/businesses`). Current value is
-  `admin123`/`admin123` — deliberately simple (owner's call, for ease
-  of use over strength) — reconsider if/when the admin page ever needs
-  to resist a real attacker, not just casual snooping.
+- (Retired as of 4c — see below) `ADMIN_USERNAME`/`ADMIN_PASSWORD` and
+  the Basic Auth gate they protected no longer exist anywhere in this
+  project. Real accounts replaced them entirely.
 - The `@neondatabase/serverless` driver sets Postgres SQLSTATE error
   codes as `.code` on the error it throws, but Drizzle wraps that in
   its own `DrizzleQueryError` via the standard `Error.cause` chain —

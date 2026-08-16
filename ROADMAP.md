@@ -93,7 +93,7 @@ folded into the architecture doc and the sub-phases below.
       `scripts/seed.ts`) to create the platform_admin account.
       `/admin/*` still runs on Basic Auth, untouched — proves the
       login mechanism in isolation before anything live depends on it.
-- [ ] **4c. Cutover: retire Basic Auth, gate /admin/* via the DAL**
+- [x] **4c. Cutover: retire Basic Auth, gate /admin/* via the DAL** — done
       Rewrite `proxy.ts` to optimistic-only checks; add
       `verifySession()` + role checks to `business-management/api.ts`
       and the admin dashboard routes; add baseline security headers
