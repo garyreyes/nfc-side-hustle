@@ -2,6 +2,37 @@
 
 ## Unreleased
 
+### 2026-08-16 — Schema + branch/card creation logic (5a)
+First sub-phase of V5. Added a new `branches` table (id, businessId,
+name, googleReviewUrl) and a nullable `cards.branchId` — purely
+additive, no migration of existing data, Saffron's data untouched.
+`createBranch()` added to `business-management/api.ts`; `createCard()`
+extended to accept an optional `branchId`, validated to actually belong
+to the target business before the card is created (defense in depth
+against an admin typo/tampered form attaching a card to another
+business's branch). `branches.businessId` cascades on business delete
+(a branch has no meaning without its business); `cards.branchId` sets
+to null on branch delete (a printed, handed-out card must keep working
+via fallback to the business-level URL, not break). No UI, no
+redirect-route changes yet — that's 5b/5c.
+
+Reviewer sub-agent's finding, fixed: a malformed (non-UUID) `branchId`
+would have thrown a raw, uncaught Postgres error instead of a clean
+`BusinessManagementError` — added the same UUID-format pre-check
+pattern already used in `analytics/api.ts`, verified directly.
+
+Verified end-to-end against the real dev server and real production
+database, via a temporary authenticated Route Handler (these functions
+require a real session through `requirePlatformAdmin()`, which needs a
+real request context — a standalone script can't call `cookies()`,
+confirmed the hard way on the first attempt): created a branch under
+Saffron; created a card with that branch (`branchId` set correctly)
+and a card without one (`branchId` correctly `null`, unchanged
+behavior); confirmed attaching a card to another business's branch is
+correctly rejected; confirmed a malformed `branchId` is rejected
+cleanly after the fix; confirmed an unauthenticated request is blocked
+entirely. All test data cleaned up and confirmed absent afterward.
+
 ### 2026-08-16 — Business owner accounts + scoped /dashboard (4d) — V4 complete
 The last piece of V4: business owners get their own login showing just
 their own business's data, nothing else. Added `lib/auth/dal.ts`'s

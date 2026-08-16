@@ -41,11 +41,30 @@ export const businesses = pgTable("businesses", {
     .references(() => users.id, { onDelete: "set null" }),
 });
 
+export const branches = pgTable("branches", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  businessId: uuid("business_id")
+    .notNull()
+    // A branch has no independent meaning without its parent business —
+    // unlike Business.ownerId (a business must survive its owner being
+    // deleted), a branch should go with its business.
+    .references(() => businesses.id, { onDelete: "cascade" }),
+  name: text("name").notNull(),
+  googleReviewUrl: text("google_review_url").notNull(),
+});
+
 export const cards = pgTable("cards", {
   id: uuid("id").primaryKey().defaultRandom(),
   businessId: uuid("business_id")
     .notNull()
     .references(() => businesses.id),
+  // Optional — a card without a branch behaves exactly as it always
+  // has (falls back to the business's own googleReviewUrl). Set null
+  // rather than cascade on branch delete: a printed, handed-out QR card
+  // must keep working (falling back to the business-level URL), not
+  // disappear just because its branch was removed — same principle as
+  // businesses.owner_id.
+  branchId: uuid("branch_id").references(() => branches.id, { onDelete: "set null" }),
   slug: text("slug").notNull().unique(),
   type: cardTypeEnum("type").notNull().default("qr"),
 });
