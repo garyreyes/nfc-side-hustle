@@ -2,6 +2,54 @@
 
 ## Unreleased
 
+### 2026-08-16 — Cutover: retire Basic Auth, gate /admin/* via sessions (4c)
+The highest-risk change in the project so far: `src/proxy.ts` no longer
+does Basic Auth at all — rewritten to an optimistic-only check (reads
+the session cookie, redirects to `/login` for UX) per Next's own
+current auth guidance, since Proxy is explicitly not meant to be the
+real security boundary. The actual enforcement is `lib/auth/dal.ts`'s
+new `requirePlatformAdmin()`, called in two places per protected path
+deliberately: once at the top of each `/admin/*` page for a clean early
+redirect, and again inside every `business-management/api.ts` function
+itself (defense in depth, so a future caller can't accidentally read/
+write business data without a valid platform_admin session even if it
+forgets the page-level check). Added baseline security headers (CSP,
+`X-Frame-Options`, `Referrer-Policy`) via `next.config.ts`.
+
+Reviewer sub-agent's finding, fixed: `requirePlatformAdmin()`'s
+`redirect()` calls happening *inside* `createBusiness()`/`createCard()`
+(both invoked from within `createBusinessAction`'s try block) risked
+being caught by the action's generic `catch` and silently rerouted to a
+misleading "Something went wrong" instead of `/login` — the same class
+of Next.js gotcha this project already knew about (`redirect()` must
+never be reachable from inside a try/catch that could swallow it).
+Fixed by calling `requirePlatformAdmin()` explicitly at the very top of
+`createBusinessAction`, before the try block, so an invalid session
+redirects immediately and the internal calls never execute. Also fixed:
+a stale code comment still describing the old Basic Auth model, and the
+CSP was missing the dev-only `'unsafe-eval'` Next's own docs specify
+(React's dev-mode error-stack reconstruction needs it; production is
+unaffected either way).
+
+Verified extensively against the real dev server and real production
+database, including the two things prior sub-phases relied on:
+`ADMIN_USERNAME`/`ADMIN_PASSWORD` sent via a real Basic Auth header no
+longer grant any access at all; and — specifically testing the
+defense-in-depth claim, not just the happy path — logged in for a real
+cryptographically-valid signed cookie, then deleted the underlying
+database session row directly while keeping that cookie, and confirmed
+`/admin/*` still correctly redirected to `/login` (caught by the DAL's
+real DB check, not proxy's cookie-only check, confirmed by different
+response headers on that redirect). Also confirmed, using the same
+orphaned-session technique, that submitting the create-business form
+now correctly redirects to `/login` (not a misleading generic error)
+and creates no business row. `npm run build` verified both with and
+without `.env.local` present.
+
+**Not yet done, deliberately deferred until after this is verified live
+on Vercel**: removing `ADMIN_USERNAME`/`ADMIN_PASSWORD` from Vercel and
+`.env.local` — see the follow-up entry once that happens.
+
 ### 2026-08-16 — Login/logout flow (4b)
 Added `features/auth/api.ts` (`verifyCredentials()`), `features/auth/
 actions.ts` (`loginAction`/`logoutAction` as POST Server Actions),

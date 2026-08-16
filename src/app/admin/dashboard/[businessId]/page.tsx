@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { getScanBreakdownByCardType, getScanTimeSeries } from "@/features/analytics/api";
 import { ScanTimeSeriesChart } from "@/features/analytics/components/ScanTimeSeriesChart";
 import type { ScanRangeDays } from "@/features/analytics/constants";
+import { requirePlatformAdmin } from "@/lib/auth/dal";
 
 // Not strictly required (a dynamic route segment with no
 // generateStaticParams is already rendered on-demand), but kept explicit
@@ -25,6 +26,8 @@ export default async function BusinessDashboardPage({
   params: Promise<{ businessId: string }>;
   searchParams: Promise<{ days?: string | string[] }>;
 }) {
+  await requirePlatformAdmin();
+
   const { businessId } = await params;
   const days = parseDays((await searchParams).days);
 

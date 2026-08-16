@@ -1,5 +1,6 @@
 import "server-only";
 import { eq } from "drizzle-orm";
+import { redirect } from "next/navigation";
 import { cache } from "react";
 import { db } from "@/lib/db/client";
 import { sessions, users } from "@/lib/db/schema";
@@ -43,3 +44,18 @@ export const verifySession = cache(async (): Promise<VerifiedSession | null> => 
 
   return { userId: row.userId, email: row.email, role: row.role };
 });
+
+// The actual authorization boundary for every platform_admin-only page
+// and data-access function — proxy.ts only redirects unauthenticated
+// requests for UX, it never checks role. This is the check that
+// actually matters, called both at the top of admin pages (for a clean
+// early redirect) and inside business-management/api.ts's functions
+// (defense in depth, so the data layer refuses even if a future caller
+// forgets the page-level check).
+export async function requirePlatformAdmin(): Promise<VerifiedSession> {
+  const session = await verifySession();
+  if (!session || session.role !== "platform_admin") {
+    redirect("/login");
+  }
+  return session;
+}
