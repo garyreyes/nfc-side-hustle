@@ -181,8 +181,22 @@ export async function assignPlateAction(plateId: string, formData: FormData) {
     redirect(`/admin/plates?error=${encodeURIComponent("Choose a business to assign this plate to.")}`);
   }
 
+  // Optional, same reasoning as recordInventoryArrivalAction's unitCost:
+  // entered in whole pesos for a human, converted to centavos here. Left
+  // blank, this stays undefined so the plate's sellPriceCents stays null
+  // (an untracked sale) rather than becoming a false ₱0 sale.
+  const sellPriceRaw = formField(formData, "sellPrice");
+  let sellPriceCents: number | undefined;
+  if (sellPriceRaw) {
+    const sellPriceMajor = Number(sellPriceRaw);
+    if (!Number.isFinite(sellPriceMajor) || sellPriceMajor < 0) {
+      redirect(`/admin/plates?error=${encodeURIComponent("Sale price must be a non-negative number.")}`);
+    }
+    sellPriceCents = Math.round(sellPriceMajor * 100);
+  }
+
   try {
-    await assignPlateToBusiness({ plateId, businessId });
+    await assignPlateToBusiness({ plateId, businessId, sellPriceCents });
   } catch (err) {
     if (err instanceof BusinessManagementError) {
       redirect(`/admin/plates?error=${encodeURIComponent(err.message)}`);

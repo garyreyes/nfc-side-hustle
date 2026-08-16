@@ -359,17 +359,34 @@ export async function listPlates(): Promise<PlateListItem[]> {
 // not a separate select-then-update — avoids a TOCTOU race against a
 // concurrent assignment of the same plate without needing a transaction
 // (this driver doesn't support them, see PROJECT_FACTS.md).
-export async function assignPlateToBusiness(input: { plateId: string; businessId: string }) {
+export async function assignPlateToBusiness(input: {
+  plateId: string;
+  businessId: string;
+  // Optional, same as unitCostCents — a sale recorded without a price
+  // stays untracked rather than becoming a false ₱0 sale (see schema.ts).
+  sellPriceCents?: number | null;
+}) {
   await requirePlatformAdmin();
 
   if (!UUID_PATTERN.test(input.plateId)) {
     throw new BusinessManagementError("That plate no longer exists.");
   }
+  if (
+    input.sellPriceCents != null &&
+    (!Number.isInteger(input.sellPriceCents) || input.sellPriceCents < 0)
+  ) {
+    throw new BusinessManagementError("Sale price must be a non-negative amount.");
+  }
 
   try {
     const [updated] = await db
       .update(plates)
-      .set({ businessId: input.businessId, status: "active", assignedAt: new Date() })
+      .set({
+        businessId: input.businessId,
+        status: "active",
+        assignedAt: new Date(),
+        sellPriceCents: input.sellPriceCents ?? null,
+      })
       .where(and(eq(plates.id, input.plateId), eq(plates.status, "unassigned")))
       .returning({ id: plates.id });
 
@@ -586,6 +603,24 @@ export type CapabilityInventorySummary = {
   /** null means no plate of this capability has a recorded cost yet. */
   totalCostCents: number | null;
   averageCostCents: number | null;
+  // V7b: revenue is summed only over plates that both sold in the
+  // bucket AND have a recorded sellPriceCents (SQL sum() ignores NULLs)
+  // — same "only counts what was actually recorded" caveat totalCostCents
+  // already carries, not a full-accuracy figure if some sales went
+  // unpriced.
+  revenueTodayCents: number | null;
+  revenueThisWeekCents: number | null;
+  revenueThisMonthCents: number | null;
+  revenueAllTimeCents: number | null;
+  // Cost of goods sold — unitCostCents summed only over plates that have
+  // actually sold (assignedAt not null), distinct from totalCostCents
+  // above which sums over ALL plates of this capability including
+  // still-unsold stock.
+  costOfGoodsSoldCents: number | null;
+  // revenueAllTimeCents - costOfGoodsSoldCents. Null whenever revenue
+  // itself is null (nothing priced has sold yet) — a profit of "₱0" would
+  // misleadingly read as "sold everything for free" rather than "no data".
+  profitAllTimeCents: number | null;
 };
 
 export async function getInventorySummary(): Promise<CapabilityInventorySummary[]> {
@@ -610,6 +645,11 @@ export async function getInventorySummary(): Promise<CapabilityInventorySummary[
       // cost recorded at all must stay null, not become 0.
       totalCostCents: sql<string | null>`sum(${plates.unitCostCents})`,
       averageCostCents: sql<string | null>`avg(${plates.unitCostCents})`,
+      revenueTodayCents: sql<string | null>`sum(${plates.sellPriceCents}) filter (where ${plates.assignedAt} >= ${todayStart})`,
+      revenueThisWeekCents: sql<string | null>`sum(${plates.sellPriceCents}) filter (where ${plates.assignedAt} >= ${weekStart})`,
+      revenueThisMonthCents: sql<string | null>`sum(${plates.sellPriceCents}) filter (where ${plates.assignedAt} >= ${monthStart})`,
+      revenueAllTimeCents: sql<string | null>`sum(${plates.sellPriceCents}) filter (where ${plates.assignedAt} is not null)`,
+      costOfGoodsSoldCents: sql<string | null>`sum(${plates.unitCostCents}) filter (where ${plates.assignedAt} is not null)`,
     })
     .from(plates)
     .groupBy(plates.capability);
@@ -618,6 +658,9 @@ export async function getInventorySummary(): Promise<CapabilityInventorySummary[
 
   return CAPABILITIES.map((capability) => {
     const row = byCapability.get(capability);
+    const revenueAllTimeCents = row?.revenueAllTimeCents != null ? Math.round(Number(row.revenueAllTimeCents)) : null;
+    const costOfGoodsSoldCents =
+      row?.costOfGoodsSoldCents != null ? Math.round(Number(row.costOfGoodsSoldCents)) : null;
     return {
       capability,
       ordered: row?.ordered ?? 0,
@@ -628,6 +671,13 @@ export async function getInventorySummary(): Promise<CapabilityInventorySummary[
       soldAllTime: row?.soldAllTime ?? 0,
       totalCostCents: row?.totalCostCents != null ? Math.round(Number(row.totalCostCents)) : null,
       averageCostCents: row?.averageCostCents != null ? Math.round(Number(row.averageCostCents)) : null,
+      revenueTodayCents: row?.revenueTodayCents != null ? Math.round(Number(row.revenueTodayCents)) : null,
+      revenueThisWeekCents: row?.revenueThisWeekCents != null ? Math.round(Number(row.revenueThisWeekCents)) : null,
+      revenueThisMonthCents:
+        row?.revenueThisMonthCents != null ? Math.round(Number(row.revenueThisMonthCents)) : null,
+      revenueAllTimeCents,
+      costOfGoodsSoldCents,
+      profitAllTimeCents: revenueAllTimeCents != null ? revenueAllTimeCents - (costOfGoodsSoldCents ?? 0) : null,
     };
   });
 }
