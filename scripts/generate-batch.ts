@@ -1,15 +1,25 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
+import { eq } from "drizzle-orm";
 import QRCode from "qrcode";
+import { db } from "../src/lib/db/client";
+import { batches, plates } from "../src/lib/db/schema";
 
 // Excludes ambiguous characters (0/o, 1/l/i) so a human reading the printed
 // serial ID off a physical unit can't misread or mistype it.
 const SLUG_CHARSET = "abcdefghjkmnpqrstuvwxyz23456789";
 const SLUG_LENGTH = 6;
+const DEFAULT_COUNT = 30;
 
 const BASE_URL = process.env.QR_BASE_URL ?? "https://nfc-side-hustle.vercel.app";
 
 type Capability = "qr" | "nfc" | "combo";
+const CAPABILITY_MIXES: Record<string, Capability[]> = {
+  even: ["qr", "nfc", "combo"],
+  qr: ["qr"],
+  nfc: ["nfc"],
+  combo: ["combo"],
+};
 
 interface PlateSpec {
   serialId: string;
@@ -38,12 +48,12 @@ function buildPlateSpecs(count: number, mix: Capability[]): PlateSpec[] {
   const slugs = uniqueSlugs(count);
   return slugs.map((slug, i) => {
     const capability = mix[i % mix.length];
-    const path = `/r/${slug}`;
+    const urlPath = `/r/${slug}`;
     return {
       serialId: slug,
       capability,
-      qrUrl: capability !== "nfc" ? `${BASE_URL}${path}?src=qr` : null,
-      nfcPayload: capability !== "qr" ? `${BASE_URL}${path}?src=nfc` : null,
+      qrUrl: capability !== "nfc" ? `${BASE_URL}${urlPath}?src=qr` : null,
+      nfcPayload: capability !== "qr" ? `${BASE_URL}${urlPath}?src=nfc` : null,
     };
   });
 }
@@ -52,9 +62,9 @@ function csvEscape(value: string): string {
   return `"${value.replace(/"/g, '""')}"`;
 }
 
-async function writeManifest(outDir: string, plates: PlateSpec[]) {
+async function writeManifest(outDir: string, plateSpecs: PlateSpec[]) {
   const header = "Serial_ID,Capability,Printed_Text,QR_Filename,QR_URL,NFC_Payload";
-  const rows = plates.map((p) =>
+  const rows = plateSpecs.map((p) =>
     [
       p.serialId,
       p.capability,
@@ -69,10 +79,10 @@ async function writeManifest(outDir: string, plates: PlateSpec[]) {
   await writeFile(path.join(outDir, "manifest.csv"), [header, ...rows].join("\n") + "\n");
 }
 
-async function writeQrImages(outDir: string, plates: PlateSpec[]) {
+async function writeQrImages(outDir: string, plateSpecs: PlateSpec[]) {
   const qrDir = path.join(outDir, "qr_codes");
   await mkdir(qrDir, { recursive: true });
-  for (const plate of plates) {
+  for (const plate of plateSpecs) {
     if (!plate.qrUrl) continue;
     const buffer = await QRCode.toBuffer(plate.qrUrl, {
       errorCorrectionLevel: "H",
@@ -83,8 +93,8 @@ async function writeQrImages(outDir: string, plates: PlateSpec[]) {
   }
 }
 
-async function writeSpecSheet(outDir: string, batchName: string, plates: PlateSpec[]) {
-  const counts = plates.reduce(
+async function writeSpecSheet(outDir: string, batchName: string, plateSpecs: PlateSpec[]) {
+  const counts = plateSpecs.reduce(
     (acc, p) => ({ ...acc, [p.capability]: acc[p.capability] + 1 }),
     { qr: 0, nfc: 0, combo: 0 } as Record<Capability, number>
   );
@@ -92,7 +102,7 @@ async function writeSpecSheet(outDir: string, batchName: string, plates: PlateSp
   const content = `# Manufacturing Spec Sheet — ${batchName}
 
 ## Order summary
-- Total units: ${plates.length}
+- Total units: ${plateSpecs.length}
 - QR-only: ${counts.qr}
 - NFC-only: ${counts.nfc}
 - Combo (QR + NFC): ${counts.combo}
@@ -127,34 +137,81 @@ async function writeSpecSheet(outDir: string, batchName: string, plates: PlateSp
   await writeFile(path.join(outDir, "SPEC_SHEET.md"), content);
 }
 
+// Inserts the batch + its unassigned plates before any local file is
+// written, so a local manifest/QR set is never generated for inventory
+// that doesn't actually exist in the database — a scan against one of
+// these serials resolves as "unassigned" (see V6b) from the moment this
+// script finishes, not a 404, even before the physical units arrive.
+async function createUnassignedInventory(batchName: string, plateSpecs: PlateSpec[]) {
+  const [existing] = await db.select({ id: batches.id }).from(batches).where(eq(batches.name, batchName));
+  if (existing) {
+    throw new Error(
+      `A batch named "${batchName}" already exists. Choose a different name, or this run may be a re-attempt after a partial failure — check the batches/plates tables before retrying.`
+    );
+  }
+
+  const [batch] = await db.insert(batches).values({ name: batchName }).returning();
+
+  try {
+    await db.insert(plates).values(
+      plateSpecs.map((p) => ({
+        slug: p.serialId,
+        capability: p.capability,
+        status: "unassigned" as const,
+        batchId: batch.id,
+      }))
+    );
+  } catch (err) {
+    // No transaction support across this insert pair (see PROJECT_FACTS.md
+    // — the neon-http driver doesn't support db.transaction()), so a
+    // failure here can leave an orphan batch row with zero plates. Low
+    // volume, admin-only script — same accepted-risk class as
+    // createBusinessOwner()'s two-write sequence.
+    console.error(
+      `Batch "${batchName}" (id ${batch.id}) was created but inserting its plates failed — ` +
+        `the batch row is now orphaned with no plates. Delete it manually before retrying.`
+    );
+    throw err;
+  }
+
+  return batch;
+}
+
 async function main() {
   const batchName = process.argv[2];
-  if (!batchName) {
-    console.error("Usage: npm run batch:generate -- <batch-name>");
+  const count = Number(process.argv[3] ?? DEFAULT_COUNT);
+  const mixArg = process.argv[4] ?? "even";
+  const mix = CAPABILITY_MIXES[mixArg];
+
+  if (!batchName || !Number.isInteger(count) || count <= 0 || !mix) {
+    console.error("Usage: npm run batch:generate -- <batch-name> [count=30] [mix=even|qr|nfc|combo]");
     process.exit(1);
   }
 
-  const mix: Capability[] = ["qr", "nfc", "combo"];
-  const plates = buildPlateSpecs(30, mix);
+  const plateSpecs = buildPlateSpecs(count, mix);
+
+  await createUnassignedInventory(batchName, plateSpecs);
 
   const outDir = path.join(import.meta.dirname, "..", "qr-codes", batchName);
   await mkdir(outDir, { recursive: true });
 
-  await writeManifest(outDir, plates);
-  await writeQrImages(outDir, plates);
-  await writeSpecSheet(outDir, batchName, plates);
+  await writeManifest(outDir, plateSpecs);
+  await writeQrImages(outDir, plateSpecs);
+  await writeSpecSheet(outDir, batchName, plateSpecs);
 
-  console.log(`Generated ${plates.length} plate specs for batch "${batchName}"`);
-  console.log(`  QR-only: ${plates.filter((p) => p.capability === "qr").length}`);
-  console.log(`  NFC-only: ${plates.filter((p) => p.capability === "nfc").length}`);
-  console.log(`  Combo: ${plates.filter((p) => p.capability === "combo").length}`);
-  console.log(`Output: ${outDir}`);
-  console.log(`\nIMPORTANT: these serial IDs have no database row yet.`);
-  console.log(`They will 404 if scanned before V6a ships and they're inserted`);
-  console.log(`as 'unassigned' plates. Do not hand out physical units until then.`);
+  console.log(`Created batch "${batchName}" with ${plateSpecs.length} unassigned plates.`);
+  console.log(`  QR-only: ${plateSpecs.filter((p) => p.capability === "qr").length}`);
+  console.log(`  NFC-only: ${plateSpecs.filter((p) => p.capability === "nfc").length}`);
+  console.log(`  Combo: ${plateSpecs.filter((p) => p.capability === "combo").length}`);
+  console.log(`Files: ${outDir}`);
+  console.log(`\nThese plates are real "unassigned" rows now — a scan against any of`);
+  console.log(`these serials will show the "not yet activated" message, not a 404.`);
+  console.log(`Assign them to a business once they're sold (admin UI: V6d, not yet built).`);
 }
 
-main().catch((err) => {
-  console.error(err);
-  process.exit(1);
-});
+main()
+  .then(() => process.exit(0))
+  .catch((err) => {
+    console.error(err);
+    process.exit(1);
+  });
