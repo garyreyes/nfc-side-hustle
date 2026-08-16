@@ -134,10 +134,12 @@ new permission model, `business_owner` stays read-only, no dedicated
       Extends `/admin/businesses` to create/list branches per
       business; the card-creation form gains an optional branch
       selector.
-- [ ] **5d. Per-branch dashboard breakdown**
+- [x] **5d. Per-branch dashboard breakdown** — done
       New per-branch scan query in `analytics/api.ts`; extends the
       shared `BusinessAnalyticsView` with a branch breakdown section,
       shown only for businesses that actually have branches — works
       identically for the admin view and a business owner's own
       `/dashboard`. Last sub-phase — V5 (and the whole V1-V5 roadmap)
       complete once this ships.
+
+**Phase 5 (V5) complete. V1-V5 roadmap complete.**
