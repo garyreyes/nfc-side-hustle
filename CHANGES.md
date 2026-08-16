@@ -2,6 +2,44 @@
 
 ## Unreleased
 
+### 2026-08-17 — Card → Plate rename + inventory schema (6a)
+First sub-phase of V6 (see `ARCHITECTURE.md` § V6 / `ROADMAP.md` Phase 6).
+Renamed the `Card` entity to `Plate` throughout the schema, every
+`features/` module, and the admin UI, to match the reseller model: plates
+are now bulk-manufactured inventory that can exist before any business
+owns them, not something provisioned only when a business signs up.
+
+`schema.ts`: `cards` table → `plates`, `businessId` now nullable
+(unassigned pre-sale inventory), `type` → `capability` (adds a third
+`"combo"` value, now editable after creation — an NFC chip can fail in
+the field), new `status` enum (`unassigned`/`active`/`suspended`,
+manually admin-toggled, no billing system involved), new `batches` table,
+new `scanEvents.interactionType` column (populated for real starting
+6b). The underlying Postgres enum type name was deliberately left as
+`card_type` even though the TS binding is `capabilityEnum` — renaming
+that too would have added migration risk for a purely internal detail.
+Migration (`drizzle/0005_v6_plate_inventory.sql`) was hand-written using
+`RENAME` statements throughout (drizzle-kit's interactive rename
+detection needs a TTY not available in this environment), so existing
+production rows were preserved, not dropped and recreated.
+
+**Caused a brief live outage**: the migration was run against production
+before the matching code was deployed, so the currently-deployed (old)
+code kept querying the now-renamed `cards` table and `/r/[slug]` 500'd
+for a few minutes — a real customer scanning Saffron's QR code during
+that window would have hit an error instead of the review redirect.
+Fixed by immediately committing, pushing, and merging the already
+locally-verified code (PR #29); CI passed, merge restored `/r/saffron`
+to a clean 302 against production. See the new `PROJECT_FACTS.md` entry
+— this sequencing mistake must not repeat on 6b–6e.
+
+Verified: `typecheck`/`lint`/`test`/`build` all clean; production data
+confirmed intact post-migration via a direct read-only query (Saffron's
+real business/plate row survived with `capability: "qr"`,
+`status: "active"`, `batchId: null`; all 59 historical `scan_events`
+correctly backfilled to `interactionType: "unknown"`); live redirect
+route confirmed restored post-merge.
+
 ### 2026-08-16 — First real UI/UX pass (via `/impeccable`)
 Outside the versioned V1-V5 roadmap. Every screen (login, admin business
 management, both admin dashboards, the business owner's own dashboard)
