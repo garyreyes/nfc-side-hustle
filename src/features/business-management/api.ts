@@ -1,5 +1,5 @@
 import "server-only";
-import { and, eq, ne, sql } from "drizzle-orm";
+import { and, eq, inArray, isNull, ne, sql } from "drizzle-orm";
 import { MANILA_TIMEZONE } from "@/features/analytics/constants";
 import { requirePlatformAdmin } from "@/lib/auth/dal";
 import { hashPassword } from "@/lib/auth/passwords";
@@ -407,6 +407,106 @@ export async function assignPlateToBusiness(input: {
     }
     throw err;
   }
+}
+
+// Assigns ONE plate out of a whole batch+capability group of unassigned
+// stock, rather than a specific plateId — used by /admin/plates' grouped
+// "Assign one" summary row, since pre-sale unassigned units within one
+// group are interchangeable and don't need to be individually browsed
+// (unlike already-sold plates, which are meaningfully distinct by the
+// business they belong to).
+//
+// The `id IN (subquery)` clause only picks WHICH row to target; the
+// `status = 'unassigned'` clause is repeated in the outer WHERE (not
+// just inside the subquery) so it's re-checked at the moment Postgres
+// actually locks the row, not just when the subquery ran — otherwise two
+// concurrent calls whose subqueries both landed on the same candidate id
+// (a real possibility: subqueries don't hold a lock while selecting)
+// could both "succeed" and double-assign one physical unit. With the
+// outer status check included, the loser's UPDATE matches zero rows
+// once it acquires the lock and rechecks, and gets the same clean
+// "no unassigned plates left" error a real stockout would produce —
+// same check-and-set principle as assignPlateToBusiness above, just
+// with a subquery choosing the target row instead of a caller-supplied
+// plateId.
+export async function assignNextUnassignedPlate(input: {
+  batchId: string | null;
+  capability: "qr" | "nfc" | "combo";
+  businessId: string;
+  sellPriceCents?: number | null;
+}) {
+  await requirePlatformAdmin();
+
+  if (input.batchId !== null && !UUID_PATTERN.test(input.batchId)) {
+    throw new BusinessManagementError("That batch no longer exists.");
+  }
+  if (
+    input.sellPriceCents != null &&
+    (!Number.isInteger(input.sellPriceCents) || input.sellPriceCents < 0)
+  ) {
+    throw new BusinessManagementError("Sale price must be a non-negative amount.");
+  }
+
+  const batchMatch = input.batchId === null ? isNull(plates.batchId) : eq(plates.batchId, input.batchId);
+
+  const candidateId = db
+    .select({ id: plates.id })
+    .from(plates)
+    .where(and(eq(plates.status, "unassigned"), eq(plates.capability, input.capability), batchMatch))
+    .limit(1);
+
+  try {
+    const [updated] = await db
+      .update(plates)
+      .set({
+        businessId: input.businessId,
+        status: "active",
+        assignedAt: new Date(),
+        sellPriceCents: input.sellPriceCents ?? null,
+      })
+      .where(and(inArray(plates.id, candidateId), eq(plates.status, "unassigned")))
+      .returning({ id: plates.id, slug: plates.slug });
+
+    if (!updated) {
+      throw new BusinessManagementError("No unassigned plates left in this group — reload to see current stock.");
+    }
+    return updated;
+  } catch (err) {
+    if (err instanceof BusinessManagementError) {
+      throw err;
+    }
+    if (isPgError(err, PG_FOREIGN_KEY_VIOLATION)) {
+      throw new BusinessManagementError("That business no longer exists.");
+    }
+    throw err;
+  }
+}
+
+// Bulk capability fix for a whole unassigned group at once — the
+// per-plate capability editor (below, updatePlateCapability) still
+// exists for already-sold plates, but grouping unassigned stock (above)
+// means there's no individual unassigned plate row left to point a
+// per-plate editor at. Scoped to plates still matching the group's
+// original (fromCapability, batchId) at update time — if the group
+// changed underneath the page load, this just updates whatever subset
+// still matches, a safe best-effort rather than a corrective necessity.
+export async function updateCapabilityForUnassignedGroup(input: {
+  batchId: string | null;
+  fromCapability: "qr" | "nfc" | "combo";
+  toCapability: "qr" | "nfc" | "combo";
+}) {
+  await requirePlatformAdmin();
+
+  if (input.batchId !== null && !UUID_PATTERN.test(input.batchId)) {
+    throw new BusinessManagementError("That batch no longer exists.");
+  }
+
+  const batchMatch = input.batchId === null ? isNull(plates.batchId) : eq(plates.batchId, input.batchId);
+
+  await db
+    .update(plates)
+    .set({ capability: input.toCapability })
+    .where(and(eq(plates.status, "unassigned"), eq(plates.capability, input.fromCapability), batchMatch));
 }
 
 // Separate from assignment on purpose — branch is scoped to whichever
