@@ -1,6 +1,8 @@
 import { notFound } from "next/navigation";
 import { getBranchScanBreakdown, getScanBreakdownByCardType, getScanTimeSeries } from "../api";
 import type { ScanRangeDays } from "../constants";
+import styles from "./BusinessAnalyticsView.module.css";
+import tableStyles from "@/shared/ui/table.module.css";
 import { ScanTimeSeriesChart } from "./ScanTimeSeriesChart";
 
 const RANGE_OPTIONS: ScanRangeDays[] = [7, 30, 90];
@@ -36,56 +38,54 @@ export async function BusinessAnalyticsView({
 
   return (
     <>
-      <nav aria-label="Date range" style={{ display: "flex", gap: 12, marginBottom: 16 }}>
+      <nav aria-label="Date range" className={styles.rangeNav}>
         {RANGE_OPTIONS.map((option) => (
           <a
             key={option}
             href={`?days=${option}`}
             aria-current={option === days ? "true" : undefined}
-            style={{ fontWeight: option === days ? "bold" : "normal" }}
+            className={option === days ? `${styles.rangeLink} ${styles.rangeLinkActive}` : styles.rangeLink}
           >
             {option} days
           </a>
         ))}
       </nav>
 
-      <h2>Scans over time</h2>
-      <ScanTimeSeriesChart data={timeSeries} />
+      <div className={styles.chartCard}>
+        <h2 className={styles.sectionTitle}>Scans over time</h2>
+        <ScanTimeSeriesChart data={timeSeries} />
+      </div>
 
-      <h2>By card type</h2>
-      <table style={{ borderCollapse: "collapse" }}>
-        <thead>
-          <tr>
-            <th scope="col" style={{ textAlign: "left", borderBottom: "1px solid #ccc", padding: 8 }}>
-              Type
-            </th>
-            <th scope="col" style={{ textAlign: "right", borderBottom: "1px solid #ccc", padding: 8 }}>
-              Scans
-            </th>
-          </tr>
-        </thead>
-        <tbody>
-          {breakdown.map((row) => (
-            <tr key={row.type}>
-              <td style={{ padding: 8, borderBottom: "1px solid #eee" }}>{row.type}</td>
-              <td style={{ padding: 8, borderBottom: "1px solid #eee", textAlign: "right" }}>
-                {row.count}
-              </td>
+      <div className={styles.tableCard}>
+        <h2 className={styles.sectionTitle}>By card type</h2>
+        <table className={tableStyles.table}>
+          <thead>
+            <tr>
+              <th scope="col">Type</th>
+              <th scope="col" data-align="right">
+                Scans
+              </th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {breakdown.map((row) => (
+              <tr key={row.type}>
+                <td>{row.type}</td>
+                <td data-align="right">{row.count}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
 
       {branchBreakdown.length > 0 && (
-        <>
-          <h2>By branch</h2>
-          <table style={{ borderCollapse: "collapse" }}>
+        <div className={styles.tableCard}>
+          <h2 className={styles.sectionTitle}>By branch</h2>
+          <table className={tableStyles.table}>
             <thead>
               <tr>
-                <th scope="col" style={{ textAlign: "left", borderBottom: "1px solid #ccc", padding: 8 }}>
-                  Branch
-                </th>
-                <th scope="col" style={{ textAlign: "right", borderBottom: "1px solid #ccc", padding: 8 }}>
+                <th scope="col">Branch</th>
+                <th scope="col" data-align="right">
                   Scans
                 </th>
               </tr>
@@ -93,15 +93,13 @@ export async function BusinessAnalyticsView({
             <tbody>
               {branchBreakdown.map((row) => (
                 <tr key={row.branchId ?? "no-branch"}>
-                  <td style={{ padding: 8, borderBottom: "1px solid #eee" }}>{row.name}</td>
-                  <td style={{ padding: 8, borderBottom: "1px solid #eee", textAlign: "right" }}>
-                    {row.totalScans}
-                  </td>
+                  <td>{row.name}</td>
+                  <td data-align="right">{row.totalScans}</td>
                 </tr>
               ))}
             </tbody>
           </table>
-        </>
+        </div>
       )}
     </>
   );

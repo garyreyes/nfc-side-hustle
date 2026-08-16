@@ -1,0 +1,201 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-08-16T00:00:00Z",
+  "title": "Design System: Review Card Dashboard",
+  "extensions": {
+    "colorMeta": {
+      "accent": {
+        "role": "primary",
+        "displayName": "Signal Green",
+        "canonical": "#157a53",
+        "tonalRamp": ["#0a2f20", "#0f6142", "#157a53", "#1c9868", "#3fb384", "#7ccca7", "#b8e3ce", "#e3f3ec"]
+      },
+      "accent-strong": {
+        "role": "primary",
+        "displayName": "Deep Green",
+        "canonical": "#0f6142",
+        "tonalRamp": ["#081f16", "#0a3f2b", "#0f6142", "#157a53", "#3fb384", "#7ccca7", "#b8e3ce", "#e3f3ec"]
+      },
+      "accent-soft": {
+        "role": "primary",
+        "displayName": "Soft Green",
+        "canonical": "#e3f3ec",
+        "tonalRamp": ["#0f6142", "#157a53", "#3fb384", "#7ccca7", "#b8e3ce", "#d3ecdf", "#e3f3ec", "#f3faf7"]
+      },
+      "bg": {
+        "role": "neutral",
+        "displayName": "Paper Gray",
+        "canonical": "#f4f5f7",
+        "tonalRamp": ["#14171f", "#2a2e38", "#565d6b", "#8b909c", "#c1c5cc", "#e3e6ea", "#f4f5f7", "#ffffff"]
+      },
+      "surface": {
+        "role": "neutral",
+        "displayName": "Card White",
+        "canonical": "#ffffff",
+        "tonalRamp": ["#14171f", "#565d6b", "#8b909c", "#cfd4db", "#e3e6ea", "#eef0f3", "#f4f5f7", "#ffffff"]
+      },
+      "surface-sunken": {
+        "role": "neutral",
+        "displayName": "Sunken Gray",
+        "canonical": "#eef0f3",
+        "tonalRamp": ["#14171f", "#565d6b", "#8b909c", "#cfd4db", "#e3e6ea", "#eef0f3", "#f4f5f7", "#ffffff"]
+      },
+      "border": {
+        "role": "neutral",
+        "displayName": "Hairline",
+        "canonical": "#e3e6ea",
+        "tonalRamp": ["#14171f", "#565d6b", "#8b909c", "#cfd4db", "#dde0e5", "#e3e6ea", "#eef0f3", "#f4f5f7"]
+      },
+      "border-strong": {
+        "role": "neutral",
+        "displayName": "Hairline Strong",
+        "canonical": "#cfd4db",
+        "tonalRamp": ["#14171f", "#565d6b", "#8b909c", "#a8adb6", "#cfd4db", "#dde0e5", "#e3e6ea", "#eef0f3"]
+      },
+      "ink": {
+        "role": "neutral",
+        "displayName": "Ink",
+        "canonical": "#14171f",
+        "tonalRamp": ["#14171f", "#2a2e38", "#3f4451", "#565d6b", "#6b7280", "#8b909c", "#c1c5cc", "#e3e6ea"]
+      },
+      "ink-secondary": {
+        "role": "neutral",
+        "displayName": "Ink Secondary",
+        "canonical": "#565d6b",
+        "tonalRamp": ["#14171f", "#2a2e38", "#3f4451", "#565d6b", "#6b7280", "#8b909c", "#c1c5cc", "#e3e6ea"]
+      },
+      "ink-muted": {
+        "role": "neutral",
+        "displayName": "Ink Muted",
+        "canonical": "#6b7280",
+        "tonalRamp": ["#14171f", "#3f4451", "#565d6b", "#6b7280", "#8b909c", "#a8adb6", "#c1c5cc", "#e3e6ea"]
+      },
+      "danger": {
+        "role": "status",
+        "displayName": "Danger",
+        "canonical": "#b02a2a",
+        "tonalRamp": ["#4a1111", "#6e1a1a", "#8f2222", "#b02a2a", "#c94f4f", "#dc7f7f", "#eecaca", "#fbeaea"]
+      }
+    },
+    "typographyMeta": {
+      "body": { "displayName": "Body", "purpose": "Default running text, form inputs, table cells (15px page / 14px in forms & tables)." },
+      "heading": { "displayName": "Heading", "purpose": "Page titles, card/section titles, h1-h4 (weight 650, tight tracking)." },
+      "label": { "displayName": "Label", "purpose": "Field labels, table column headers, stat labels — small, heavy, occasionally uppercase-tracked." }
+    },
+    "shadows": [
+      { "name": "shadow-sm", "value": "0 1px 2px rgba(20, 23, 31, 0.06)", "purpose": "Default resting elevation for every card, stat card, business card, table/chart card." },
+      { "name": "shadow-md", "value": "0 8px 24px rgba(20, 23, 31, 0.08), 0 2px 6px rgba(20, 23, 31, 0.05)", "purpose": "Highest-emphasis surface per page: the login card, and the active pill in the date-range switcher." }
+    ],
+    "motion": [
+      { "name": "ease-nav", "value": "0.12s ease", "purpose": "Sidebar nav-link background/color transition on hover/active." },
+      { "name": "ease-button", "value": "0.12s ease", "purpose": "Button background transition on hover." }
+    ],
+    "breakpoints": [
+      { "name": "shell-collapse", "value": "860px" }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Default submit/primary-action button. Wired through the shared SubmitButton client component, which disables itself and swaps its label during a pending Server Action submit.",
+      "html": "<button class=\"ds-btn-primary\" type=\"submit\">Log in</button>",
+      "css": ".ds-btn-primary { display: inline-flex; align-items: center; justify-content: center; gap: 8px; font-size: 14px; font-weight: 650; padding: 12px 24px; border-radius: 999px; border: none; cursor: pointer; background: #157a53; color: #ffffff; transition: background 0.12s ease; } .ds-btn-primary:hover { background: #0f6142; } .ds-btn-primary:disabled { opacity: 0.65; cursor: default; pointer-events: none; } .ds-btn-primary:focus-visible { outline: 2px solid #157a53; outline-offset: 2px; }"
+    },
+    {
+      "name": "Secondary Button",
+      "kind": "button",
+      "refersTo": "button-secondary",
+      "description": "Lower-emphasis action button (inline admin-form add actions, 'go to your dashboard' alternates).",
+      "html": "<button class=\"ds-btn-secondary\" type=\"submit\">Add card</button>",
+      "css": ".ds-btn-secondary { display: inline-flex; align-items: center; justify-content: center; gap: 8px; font-size: 14px; font-weight: 650; padding: 12px 24px; border-radius: 999px; border: 1px solid #cfd4db; cursor: pointer; background: #ffffff; color: #14171f; transition: background 0.12s ease; } .ds-btn-secondary:hover { background: #eef0f3; } .ds-btn-secondary:focus-visible { outline: 2px solid #157a53; outline-offset: 2px; }"
+    },
+    {
+      "name": "Text Input",
+      "kind": "input",
+      "refersTo": "input",
+      "description": "Standard form field used across login and every admin/owner form.",
+      "html": "<div class=\"ds-field\"><label class=\"ds-field-label\" for=\"ds-email\">Email</label><input class=\"ds-input\" id=\"ds-email\" type=\"email\" /></div>",
+      "css": ".ds-field { display: flex; flex-direction: column; gap: 8px; } .ds-field-label { font-size: 13px; font-weight: 600; color: #565d6b; } .ds-input { font-size: 14px; padding: 12px; border-radius: 8px; border: 1px solid #cfd4db; background: #ffffff; color: #14171f; width: 100%; } .ds-input:focus-visible { outline: 2px solid #157a53; outline-offset: 1px; border-color: #157a53; }"
+    },
+    {
+      "name": "Card",
+      "kind": "card",
+      "refersTo": "card",
+      "description": "Base raised container used for forms, stat groupings, business records, chart/table wrappers.",
+      "html": "<section class=\"ds-card\"><h2 class=\"ds-card-title\">Add a business</h2><p>Card content goes here.</p></section>",
+      "css": ".ds-card { background: #ffffff; border: 1px solid #e3e6ea; border-radius: 18px; box-shadow: 0 1px 2px rgba(20,23,31,0.06); padding: 24px; } .ds-card-title { font-size: 15px; font-weight: 650; margin-bottom: 16px; }"
+    },
+    {
+      "name": "Stat Card",
+      "kind": "card",
+      "refersTo": "stat-card",
+      "description": "Headline metric tile — large tabular-numeral value, small muted label, optional note.",
+      "html": "<div class=\"ds-stat\"><span class=\"ds-stat-label\">Total scans</span><span class=\"ds-stat-value\">1,204</span></div>",
+      "css": ".ds-stat { background: #ffffff; border: 1px solid #e3e6ea; border-radius: 18px; box-shadow: 0 1px 2px rgba(20,23,31,0.06); padding: 24px; display: flex; flex-direction: column; gap: 8px; min-width: 0; } .ds-stat-label { font-size: 13px; font-weight: 600; color: #565d6b; } .ds-stat-value { font-size: 28px; font-weight: 700; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; color: #14171f; }"
+    },
+    {
+      "name": "Accent Badge",
+      "kind": "chip",
+      "refersTo": "badge-accent",
+      "description": "Inline status/tag pill; also has neutral and danger tone variants.",
+      "html": "<span class=\"ds-badge\">Active</span>",
+      "css": ".ds-badge { display: inline-flex; align-items: center; gap: 4px; padding: 3px 12px; border-radius: 999px; font-size: 12px; font-weight: 650; line-height: 1.4; white-space: nowrap; background: #e3f3ec; color: #0f6142; }"
+    },
+    {
+      "name": "Sidebar Nav Link",
+      "kind": "nav",
+      "refersTo": "nav-link",
+      "description": "Primary sidebar navigation item with a currentColor state-dot that only shows when active.",
+      "html": "<a class=\"ds-nav-link ds-nav-link-active\" aria-current=\"page\"><span class=\"ds-nav-dot\"></span>Dashboard</a>",
+      "css": ".ds-nav-link { display: flex; align-items: center; gap: 12px; padding: 12px; border-radius: 8px; color: #565d6b; font-weight: 550; font-size: 14px; text-decoration: none; transition: background 0.12s ease, color 0.12s ease; } .ds-nav-link:hover { background: #eef0f3; color: #14171f; } .ds-nav-link-active { background: #e3f3ec; color: #0f6142; } .ds-nav-dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; opacity: 0; flex-shrink: 0; } .ds-nav-link-active .ds-nav-dot { opacity: 1; }"
+    },
+    {
+      "name": "Data Table",
+      "kind": "custom",
+      "refersTo": "table",
+      "description": "Uppercase-tracked muted headers, tabular-numeral right-aligned numeric columns, row-hover fill, no border under the last row.",
+      "html": "<table class=\"ds-table\"><thead><tr><th>Business</th><th data-align=\"right\">Total scans</th></tr></thead><tbody><tr><td>Saffron</td><td data-align=\"right\">128</td></tr></tbody></table>",
+      "css": ".ds-table { width: 100%; border-collapse: collapse; font-size: 14px; } .ds-table th { text-align: left; font-size: 12px; font-weight: 650; color: #6b7280; text-transform: uppercase; letter-spacing: 0.02em; padding: 12px; border-bottom: 1px solid #e3e6ea; } .ds-table th[data-align='right'] { text-align: right; } .ds-table td { padding: 12px; border-bottom: 1px solid #e3e6ea; color: #14171f; vertical-align: middle; } .ds-table td[data-align='right'] { text-align: right; font-variant-numeric: tabular-nums; } .ds-table tbody tr:last-child td { border-bottom: none; } .ds-table tbody tr:hover td { background: #eef0f3; }"
+    },
+    {
+      "name": "Date Range Switcher",
+      "kind": "custom",
+      "refersTo": "range-switcher",
+      "description": "Segmented pill control for the 7/30/90-day analytics window; the one place a shadow means 'selected' rather than 'raised'.",
+      "html": "<nav class=\"ds-range-nav\"><a class=\"ds-range-link ds-range-link-active\" aria-current=\"true\">30 days</a><a class=\"ds-range-link\">90 days</a></nav>",
+      "css": ".ds-range-nav { display: flex; gap: 4px; background: #eef0f3; border-radius: 999px; padding: 4px; width: fit-content; } .ds-range-link { padding: 8px 16px; border-radius: 999px; font-size: 13px; font-weight: 600; color: #565d6b; text-decoration: none; } .ds-range-link-active { background: #ffffff; color: #14171f; box-shadow: 0 8px 24px rgba(20,23,31,0.08), 0 2px 6px rgba(20,23,31,0.05); }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Plain Fintech Dashboard",
+    "overview": "This is the category-standard SaaS dashboard, executed at full craft rather than reinvented. The owner was offered two named cultural-concept directions — a Manila wet-market \"price tag\" world and a \"receipt ledger\" world — and a competitive challenger (\"Jet-Age Ticket Wallet\"), and explicitly chose the plain, familiar SaaS-dashboard register instead, held to the craft bar of Oripio, a fintech-dashboard reference screenshot. The build honors that choice: a white/light-gray ground, rounded cards on a soft offset+blur shadow, one restrained green accent, and a white sidebar with a green active-nav state. Nothing here performs a theme; it reads as a professional tool a small-business owner would trust enough to pay for. Density is calm rather than enterprise-dense — generous card padding (24px), an 8-step spacing scale used consistently, and stat numbers set large enough to read at a glance. Tabular numerals appear on every count so scan totals in tables and stat cards line up predictably. No decorative device (illustration, gradient, background texture) exists anywhere in the build; the only color note allowed to stand out is the single green accent.",
+    "keyCharacteristics": [
+      "Light, flat ground (#f4f5f7) with white surfaces raised on a real offset+blur shadow, never a flat glow",
+      "One accent color only (#157a53), used sparingly: active nav, primary buttons, accent badges, chart line, focus ring",
+      "Rounded-pill primary/secondary buttons and badges; large-radius (18px) cards; small-radius (8-12px) inputs and nav items",
+      "Hanken Grotesk throughout, no secondary/display typeface",
+      "Tabular numerals on every stat value and every numeric table column"
+    ],
+    "rules": [
+      { "name": "The One Accent Rule", "body": "Green (#157a53/#0f6142/#e3f3ec) is the only color besides ink/neutral/danger anywhere in the UI. It marks state (active, primary action, focus) — it is never used for decoration or to differentiate content that isn't actually the primary action.", "section": "colors" },
+      { "name": "The Numerals-Line-Up Rule", "body": "Every numeric value that represents a count (stat cards, table scan-count columns) uses font-variant-numeric: tabular-nums, applied globally to table and explicitly on StatCard's value. Counts must always align in a column; this is non-negotiable for a dashboard whose whole job is showing numbers at a glance.", "section": "typography" },
+      { "name": "The Structural Shadow Rule", "body": "Shadow depth tracks a surface's role in the hierarchy (login card and active pill get shadow-md; every ordinary content card gets shadow-sm), not decoration or hover flourish. There is no hover-lift/scale animation anywhere in the build.", "section": "elevation" }
+    ],
+    "dos": [
+      "Do keep the accent to green only (#157a53/#0f6142/#e3f3ec) — no second accent color, ever, without an explicit new direction decision.",
+      "Do use shadow-sm + Hairline border together on every card-like surface; never shadow without border or border without shadow.",
+      "Do use tabular numerals on any new numeric/count display — this is load-bearing for a scan-count dashboard.",
+      "Do route every new form submit button through the shared SubmitButton component so pending state is automatic, not something each new form has to remember.",
+      "Do keep the single 860px breakpoint as the only responsive decision point; collapse sidebar-to-top-bar rather than introducing a hamburger/off-canvas pattern.",
+      "Do cap authenticated content at 1120px max-width, matching the existing AppShell content column."
+    ],
+    "donts": [
+      "Don't introduce a second typeface, decorative display face, or serif — Hanken Grotesk carries the whole system by design.",
+      "Don't add gradients, background textures, illustration, or photography — none exist in the build and PRODUCT.md explicitly warns against fabricating brand assets that don't exist yet (no logo, no photography, no placeholder \"trusted by\" rows).",
+      "Don't use flat/glow-only shadows — the direction contract is explicit that shadows are always offset + blur.",
+      "Don't invent a themed visual concept (market/ledger/ticket motifs) on any new surface — the owner explicitly declined all three in favor of this plain register; that decision is durable per PRODUCT.md, not open by default."
+    ]
+  }
+}

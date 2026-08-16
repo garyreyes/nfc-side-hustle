@@ -4,156 +4,262 @@ import {
   createBusinessAction,
   createCardAction,
 } from "@/features/business-management/actions";
+import { getBusinessScanTotals } from "@/features/analytics/api";
 import { listBusinesses } from "@/features/business-management/api";
 import { requirePlatformAdmin } from "@/lib/auth/dal";
+import { AppShell } from "@/shared/ui/AppShell";
+import { Card } from "@/shared/ui/Card";
+import formStyles from "@/shared/ui/form.module.css";
+import { StatCard } from "@/shared/ui/StatCard";
+import { SubmitButton } from "@/shared/ui/SubmitButton";
+import styles from "./page.module.css";
 
 export default async function AdminBusinessesPage({
   searchParams,
 }: {
   searchParams: Promise<{ error?: string }>;
 }) {
-  await requirePlatformAdmin();
+  const session = await requirePlatformAdmin();
 
   const { error } = await searchParams;
-  const businesses = await listBusinesses();
+  const [businesses, scanTotals] = await Promise.all([listBusinesses(), getBusinessScanTotals()]);
+  const totalScans = scanTotals.reduce((sum, b) => sum + b.totalScans, 0);
 
   return (
-    <main style={{ maxWidth: 640, margin: "0 auto", padding: 24 }}>
-      <h1>Businesses</h1>
-
+    <AppShell
+      navItems={[
+        { label: "Businesses", href: "/admin/businesses", active: true },
+        { label: "Dashboard", href: "/admin/dashboard", active: false },
+      ]}
+      email={session.email}
+      roleLabel="Platform admin"
+      title="Businesses"
+      subtitle={`${businesses.length} business${businesses.length === 1 ? "" : "es"} on the platform.`}
+    >
       {error && (
-        <p style={{ color: "#b00020", border: "1px solid #b00020", padding: 8 }}>{error}</p>
+        <p className={formStyles.errorBanner} style={{ marginBottom: "var(--space-5)" }}>
+          {error}
+        </p>
       )}
 
-      <form action={createBusinessAction} style={{ display: "grid", gap: 8, marginBottom: 32 }}>
-        <label>
-          Business name
-          <br />
-          <input type="text" name="name" required />
-        </label>
-        <label>
-          Google review URL
-          <br />
-          <input type="url" name="googleReviewUrl" required />
-        </label>
-        <label>
-          Slug
-          <br />
-          <input type="text" name="slug" required pattern="[a-z0-9-]+" />
-        </label>
-        <label>
-          Owner email (optional)
-          <br />
-          <input type="email" name="ownerEmail" />
-        </label>
-        <label>
-          Owner password (optional)
-          <br />
-          <input type="password" name="ownerPassword" />
-        </label>
-        <button type="submit">Add business</button>
-      </form>
+      <div
+        style={{
+          display: "grid",
+          gap: "var(--space-4)",
+          gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
+          marginBottom: "var(--space-6)",
+        }}
+      >
+        <StatCard label="Businesses" value={businesses.length} />
+        <StatCard label="Total scans" value={totalScans} />
+      </div>
 
-      <h2>Existing businesses ({businesses.length})</h2>
-      <ul>
+      <Card title="Add a business">
+        <form action={createBusinessAction} className={formStyles.form}>
+          <div className={formStyles.formRow}>
+            <div className={formStyles.field}>
+              <label className={formStyles.fieldLabel} htmlFor="name">
+                Business name
+              </label>
+              <input className={formStyles.input} id="name" type="text" name="name" required />
+            </div>
+            <div className={formStyles.field}>
+              <label className={formStyles.fieldLabel} htmlFor="slug">
+                Slug
+              </label>
+              <input
+                className={formStyles.input}
+                id="slug"
+                type="text"
+                name="slug"
+                required
+                pattern="[a-z0-9-]+"
+              />
+            </div>
+          </div>
+          <div className={formStyles.field}>
+            <label className={formStyles.fieldLabel} htmlFor="googleReviewUrl">
+              Google review URL
+            </label>
+            <input
+              className={formStyles.input}
+              id="googleReviewUrl"
+              type="url"
+              name="googleReviewUrl"
+              required
+            />
+          </div>
+          <div className={formStyles.formRow}>
+            <div className={formStyles.field}>
+              <label className={formStyles.fieldLabel} htmlFor="ownerEmail">
+                Owner email (optional)
+              </label>
+              <input className={formStyles.input} id="ownerEmail" type="email" name="ownerEmail" />
+            </div>
+            <div className={formStyles.field}>
+              <label className={formStyles.fieldLabel} htmlFor="ownerPassword">
+                Owner password (optional)
+              </label>
+              <input
+                className={formStyles.input}
+                id="ownerPassword"
+                type="password"
+                name="ownerPassword"
+              />
+            </div>
+          </div>
+          <SubmitButton className={formStyles.button} pendingLabel="Adding…">
+            Add business
+          </SubmitButton>
+        </form>
+      </Card>
+
+      <div style={{ height: "var(--space-6)" }} />
+
+      <div className={styles.businessList}>
         {businesses.map((business) => {
-          // Branch names aren't unique within a business (see
-          // PROJECT_FACTS.md) — label with the review URL too wherever a
-          // branch is displayed, so two same-named branches (e.g. two
-          // "Main Street" locations) stay distinguishable instead of an
-          // admin picking the wrong one for a new card by mistake.
           const branchById = new Map(
             business.branches.map((b) => [b.branchId, `${b.name} — ${b.googleReviewUrl}`])
           );
 
           return (
-            <li key={business.businessId} style={{ marginBottom: 12 }}>
-              <strong>{business.name}</strong> — {business.googleReviewUrl}
+            <div key={business.businessId} className={styles.businessCard}>
+              <div className={styles.businessHeader}>
+                <div>
+                  <div className={styles.businessName}>{business.name}</div>
+                  <div className={styles.businessUrl}>{business.googleReviewUrl}</div>
+                </div>
+              </div>
 
-              <h4 style={{ marginBottom: 4 }}>Cards</h4>
-              <ul>
-                {business.cards.map((card) => (
-                  <li key={card.cardId}>
-                    <a href={`/r/${card.slug}`}>/r/{card.slug}</a> ({card.type}) —{" "}
-                    {card.branchId ? branchById.get(card.branchId) ?? "unknown branch" : "no branch"}
-                  </li>
-                ))}
-                {business.cards.length === 0 && <li>(no cards)</li>}
-              </ul>
-              <form
-                action={createCardAction.bind(null, business.businessId)}
-                style={{ display: "grid", gap: 4, marginTop: 4, marginBottom: 12, maxWidth: 300 }}
-              >
-                <label>
-                  Slug
-                  <br />
-                  <input type="text" name="slug" required pattern="[a-z0-9-]+" />
-                </label>
-                <label>
-                  Branch (optional)
-                  <br />
-                  <select name="branchId" defaultValue="">
-                    <option value="">No branch</option>
-                    {business.branches.map((branch) => (
-                      <option key={branch.branchId} value={branch.branchId}>
-                        {branch.name} — {branch.googleReviewUrl}
-                      </option>
+              <div className={styles.sections}>
+                <div className={styles.section}>
+                  <span className={styles.sectionTitle}>Cards</span>
+                  <div className={styles.itemList}>
+                    {business.cards.map((card) => (
+                      <div key={card.cardId} className={styles.item}>
+                        <a href={`/r/${card.slug}`} className={styles.itemPrimary}>
+                          /r/{card.slug}
+                        </a>
+                        <span className={styles.itemMeta}>
+                          {card.type} ·{" "}
+                          {card.branchId ? branchById.get(card.branchId) ?? "unknown branch" : "no branch"}
+                        </span>
+                      </div>
                     ))}
-                  </select>
-                </label>
-                <button type="submit">Add card</button>
-              </form>
+                    {business.cards.length === 0 && <p className={styles.emptyNote}>No cards yet.</p>}
+                  </div>
+                  <form
+                    action={createCardAction.bind(null, business.businessId)}
+                    className={styles.inlineForm}
+                  >
+                    <input
+                      className={formStyles.input}
+                      type="text"
+                      name="slug"
+                      placeholder="Card slug"
+                      required
+                      pattern="[a-z0-9-]+"
+                    />
+                    <select className={formStyles.select} name="branchId" defaultValue="">
+                      <option value="">No branch</option>
+                      {business.branches.map((branch) => (
+                        <option key={branch.branchId} value={branch.branchId}>
+                          {branch.name} — {branch.googleReviewUrl}
+                        </option>
+                      ))}
+                    </select>
+                    <SubmitButton
+                      className={`${formStyles.buttonSecondary} ${formStyles.buttonSmall}`}
+                      pendingLabel="Adding…"
+                    >
+                      Add card
+                    </SubmitButton>
+                  </form>
+                </div>
 
-              <h4 style={{ marginBottom: 4 }}>Branches</h4>
-              <ul>
-                {business.branches.map((branch) => (
-                  <li key={branch.branchId}>
-                    {branch.name} — {branch.googleReviewUrl}
-                  </li>
-                ))}
-                {business.branches.length === 0 && <li>(no branches)</li>}
-              </ul>
-              <form
-                action={createBranchAction.bind(null, business.businessId)}
-                style={{ display: "grid", gap: 4, marginTop: 4, marginBottom: 12, maxWidth: 300 }}
-              >
-                <label>
-                  Branch name
-                  <br />
-                  <input type="text" name="name" required />
-                </label>
-                <label>
-                  Google review URL
-                  <br />
-                  <input type="url" name="googleReviewUrl" required />
-                </label>
-                <button type="submit">Add branch</button>
-              </form>
+                <div className={styles.section}>
+                  <span className={styles.sectionTitle}>Branches</span>
+                  <div className={styles.itemList}>
+                    {business.branches.map((branch) => (
+                      <div key={branch.branchId} className={styles.item}>
+                        <span className={styles.itemPrimary}>{branch.name}</span>
+                        <span className={styles.itemMeta}>{branch.googleReviewUrl}</span>
+                      </div>
+                    ))}
+                    {business.branches.length === 0 && (
+                      <p className={styles.emptyNote}>No branches yet.</p>
+                    )}
+                  </div>
+                  <form
+                    action={createBranchAction.bind(null, business.businessId)}
+                    className={styles.inlineForm}
+                  >
+                    <input
+                      className={formStyles.input}
+                      type="text"
+                      name="name"
+                      placeholder="Branch name"
+                      required
+                    />
+                    <input
+                      className={formStyles.input}
+                      type="url"
+                      name="googleReviewUrl"
+                      placeholder="Google review URL"
+                      required
+                    />
+                    <SubmitButton
+                      className={`${formStyles.buttonSecondary} ${formStyles.buttonSmall}`}
+                      pendingLabel="Adding…"
+                    >
+                      Add branch
+                    </SubmitButton>
+                  </form>
+                </div>
 
-              {business.ownerEmail ? (
-                <p>Owner: {business.ownerEmail}</p>
-              ) : (
-                <form
-                  action={addBusinessOwnerAction.bind(null, business.businessId)}
-                  style={{ display: "grid", gap: 4, marginTop: 4, maxWidth: 300 }}
-                >
-                  <label>
-                    Owner email
-                    <br />
-                    <input type="email" name="email" required />
-                  </label>
-                  <label>
-                    Owner password
-                    <br />
-                    <input type="password" name="password" required />
-                  </label>
-                  <button type="submit">Add owner</button>
-                </form>
-              )}
-            </li>
+                <div className={styles.section}>
+                  <span className={styles.sectionTitle}>Owner</span>
+                  {business.ownerEmail ? (
+                    <div className={styles.ownerBox}>
+                      <span className={styles.ownerEmail}>{business.ownerEmail}</span>
+                      <span className={styles.ownerNote}>Has dashboard access</span>
+                    </div>
+                  ) : (
+                    <>
+                      <p className={styles.emptyNote}>No owner account yet.</p>
+                      <form
+                        action={addBusinessOwnerAction.bind(null, business.businessId)}
+                        className={styles.inlineForm}
+                      >
+                        <input
+                          className={formStyles.input}
+                          type="email"
+                          name="email"
+                          placeholder="Owner email"
+                          required
+                        />
+                        <input
+                          className={formStyles.input}
+                          type="password"
+                          name="password"
+                          placeholder="Owner password"
+                          required
+                        />
+                        <SubmitButton
+                          className={`${formStyles.buttonSecondary} ${formStyles.buttonSmall}`}
+                          pendingLabel="Adding…"
+                        >
+                          Add owner
+                        </SubmitButton>
+                      </form>
+                    </>
+                  )}
+                </div>
+              </div>
+            </div>
           );
         })}
-      </ul>
-    </main>
+      </div>
+    </AppShell>
   );
 }

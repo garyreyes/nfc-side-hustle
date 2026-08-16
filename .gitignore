@@ -42,3 +42,10 @@ next-env.d.ts
 
 # generated QR code images (regenerate with `npm run qr:generate -- <slug>`)
 /qr-codes/
+
+# impeccable: session-transient state (design.json is the durable
+# DESIGN.md sidecar and IS tracked; these are not)
+/.impeccable/hook.cache.json
+/.impeccable/questions/
+/.impeccable/mocks/
+/.impeccable/review/

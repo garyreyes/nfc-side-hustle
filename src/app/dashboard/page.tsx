@@ -1,6 +1,6 @@
-import { logoutAction } from "@/features/auth/actions";
 import { BusinessAnalyticsView, parseDays } from "@/features/analytics/components/BusinessAnalyticsView";
 import { requireOwnedBusiness } from "@/lib/auth/dal";
+import { AppShell } from "@/shared/ui/AppShell";
 
 export const dynamic = "force-dynamic";
 
@@ -13,17 +13,14 @@ export default async function OwnerDashboardPage({
   const days = parseDays((await searchParams).days);
 
   return (
-    <main style={{ maxWidth: 640, margin: "0 auto", padding: 24 }}>
-      <p>
-        Logged in as <strong>{session.email}</strong>
-      </p>
-      <h1>{businessName}</h1>
-
+    <AppShell
+      navItems={[{ label: "Dashboard", href: "/dashboard", active: true }]}
+      email={session.email}
+      roleLabel="Business owner"
+      title={businessName}
+      subtitle="Your scan activity"
+    >
       <BusinessAnalyticsView businessId={businessId} days={days} />
-
-      <form action={logoutAction} style={{ marginTop: 24 }}>
-        <button type="submit">Log out</button>
-      </form>
-    </main>
+    </AppShell>
   );
 }
