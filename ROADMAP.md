@@ -126,7 +126,7 @@ new permission model, `business_owner` stays read-only, no dedicated
       extended to accept an optional `branchId`, validated against the
       target business. No UI yet — testable independently via
       scripts, same pattern as 1a/2b/4a.
-- [ ] **5b. Branch-aware redirect**
+- [x] **5b. Branch-aware redirect** — done
       `GET /r/[slug]` resolves `card.branch?.googleReviewUrl ??
       business.googleReviewUrl`. Small, focused — the actual
       customer-facing payoff of the phase.
