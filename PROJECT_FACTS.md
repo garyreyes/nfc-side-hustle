@@ -25,7 +25,14 @@ Durable, project-specific decisions that should survive across sessions.
 - `branches` has no unique constraint on `(businessId, name)` —
   deliberate, not an oversight. Duplicate branch names under the same
   business are allowed; nothing in the product requires uniqueness
-  there the way `users.email` or `businesses.ownerId` do.
+  there the way `users.email` or `businesses.ownerId` do. Because of
+  this, anywhere a branch is shown to an admin (the card-creation
+  branch `<select>`, the branch list, the per-card branch annotation in
+  `admin/businesses/page.tsx`) must label it with more than just the
+  name — currently `name — googleReviewUrl` — or two same-named
+  branches (e.g. two "Main Street" locations) become visually
+  indistinguishable and an admin could attach a card to the wrong one
+  with no visible error. Reviewer-caught in 5c.
 - **Vercel Preview deployments use their own separate Neon database
   branch, not the shared production one** — discovered while verifying
   4c on Preview: a session created via login on a Preview URL never

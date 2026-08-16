@@ -245,7 +245,8 @@ export type BusinessWithCards = {
   name: string;
   googleReviewUrl: string;
   ownerEmail: string | null;
-  cards: { cardId: string; slug: string; type: "qr" | "nfc" }[];
+  cards: { cardId: string; slug: string; type: "qr" | "nfc"; branchId: string | null }[];
+  branches: { branchId: string; name: string; googleReviewUrl: string }[];
 };
 
 export async function listBusinesses(): Promise<BusinessWithCards[]> {
@@ -260,10 +261,33 @@ export async function listBusinesses(): Promise<BusinessWithCards[]> {
       cardId: cards.id,
       slug: cards.slug,
       cardType: cards.type,
+      cardBranchId: cards.branchId,
     })
     .from(businesses)
     .leftJoin(cards, eq(cards.businessId, businesses.id))
     .leftJoin(users, eq(users.id, businesses.ownerId));
+
+  // A separate query rather than also joining branches onto the query
+  // above — that join only surfaces branches that already have a card
+  // pointing at them, but the branch list/selector needs every branch a
+  // business has, including ones with no card yet. No transaction support
+  // (see PROJECT_FACTS.md), so this is two plain sequential selects
+  // merged in JS, same pattern already used for cards/users above.
+  const branchRows = await db
+    .select({
+      businessId: branches.businessId,
+      branchId: branches.id,
+      name: branches.name,
+      googleReviewUrl: branches.googleReviewUrl,
+    })
+    .from(branches);
+
+  const branchesByBusiness = new Map<string, BusinessWithCards["branches"]>();
+  for (const row of branchRows) {
+    const list = branchesByBusiness.get(row.businessId) ?? [];
+    list.push({ branchId: row.branchId, name: row.name, googleReviewUrl: row.googleReviewUrl });
+    branchesByBusiness.set(row.businessId, list);
+  }
 
   const byBusiness = new Map<string, BusinessWithCards>();
   for (const row of rows) {
@@ -275,13 +299,19 @@ export async function listBusinesses(): Promise<BusinessWithCards[]> {
         googleReviewUrl: row.googleReviewUrl,
         ownerEmail: row.ownerEmail,
         cards: [],
+        branches: branchesByBusiness.get(row.businessId) ?? [],
       };
       byBusiness.set(row.businessId, business);
     }
     // LEFT JOIN produces a row with null card columns for a business with
     // no cards yet (the accepted orphan case) — don't add a fake card for it.
     if (row.cardId && row.slug && row.cardType) {
-      business.cards.push({ cardId: row.cardId, slug: row.slug, type: row.cardType });
+      business.cards.push({
+        cardId: row.cardId,
+        slug: row.slug,
+        type: row.cardType,
+        branchId: row.cardBranchId,
+      });
     }
   }
 
