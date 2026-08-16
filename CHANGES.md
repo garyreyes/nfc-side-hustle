@@ -2,6 +2,28 @@
 
 ## Unreleased
 
+### 2026-08-16 — Branch-aware redirect (5b)
+Second sub-phase of V5 — the actual customer-facing payoff. `GET
+/r/[slug]` now resolves `branch.googleReviewUrl ?? business.googleReviewUrl`
+instead of always using the business's URL. `getCardWithBusinessBySlug()`
+in `scan-tracking/api.ts` gained a LEFT JOIN to `branches` (left, not
+inner, since `cards.branchId` is nullable) and now resolves the fallback
+internally, so it still returns the exact same `{ cardId, googleReviewUrl }`
+shape as before — `route.ts` itself needed zero changes.
+
+Verified against real production data: a temporary branch-linked card
+redirected to the branch's own URL, a temporary branch-less card
+redirected to the business's URL exactly as it always has (Saffron's
+real card, unaffected). No auth-bypassing Route Handler needed this time
+— the redirect route is public by design — verified directly via curl
+against the real dev server. All test data (including the scan events
+the verification itself generated) cleaned up and confirmed absent
+afterward.
+
+Reviewer sub-agent found no real bugs; confirmed both the LEFT JOIN/`??`
+fallback logic and the unchanged `route.ts` URL-validation path (a bad
+branch URL gets the same friendly 500 a bad business URL always has).
+
 ### 2026-08-16 — Schema + branch/card creation logic (5a)
 First sub-phase of V5. Added a new `branches` table (id, businessId,
 name, googleReviewUrl) and a nullable `cards.branchId` — purely
