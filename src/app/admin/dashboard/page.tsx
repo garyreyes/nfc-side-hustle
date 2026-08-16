@@ -1,5 +1,8 @@
 import { getBusinessScanTotals } from "@/features/analytics/api";
 import { requirePlatformAdmin } from "@/lib/auth/dal";
+import { AppShell } from "@/shared/ui/AppShell";
+import { StatCard } from "@/shared/ui/StatCard";
+import tableStyles from "@/shared/ui/table.module.css";
 
 // Without an explicit opt-out, Next.js statically prerenders this page at
 // build time (it has no dynamic route segment or searchParams like
@@ -9,59 +12,55 @@ import { requirePlatformAdmin } from "@/lib/auth/dal";
 export const dynamic = "force-dynamic";
 
 export default async function AdminDashboardPage() {
-  await requirePlatformAdmin();
+  const session = await requirePlatformAdmin();
 
   const totals = await getBusinessScanTotals();
+  const totalScans = totals.reduce((sum, b) => sum + b.totalScans, 0);
 
   return (
-    <main style={{ maxWidth: 640, margin: "0 auto", padding: 24 }}>
-      <h1>Dashboard</h1>
-      <p>
-        <a href="/admin/businesses">Manage businesses</a>
-      </p>
+    <AppShell
+      navItems={[
+        { label: "Businesses", href: "/admin/businesses", active: false },
+        { label: "Dashboard", href: "/admin/dashboard", active: true },
+      ]}
+      email={session.email}
+      roleLabel="Platform admin"
+      title="Dashboard"
+      subtitle="Scan activity across every business on the platform."
+    >
+      <div
+        style={{
+          display: "grid",
+          gap: "var(--space-4)",
+          gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
+          marginBottom: "var(--space-6)",
+        }}
+      >
+        <StatCard label="Businesses" value={totals.length} />
+        <StatCard label="Total scans" value={totalScans} />
+      </div>
 
-      <h2>Scans by business ({totals.length})</h2>
       {totals.length === 0 ? (
-        <p>No businesses yet.</p>
+        <p className={tableStyles.emptyState}>No businesses yet.</p>
       ) : (
-        <table style={{ borderCollapse: "collapse", width: "100%" }}>
+        <table className={tableStyles.table}>
           <thead>
             <tr>
-              <th
-                scope="col"
-                style={{ textAlign: "left", borderBottom: "1px solid #ccc", padding: 8 }}
-              >
-                Business
-              </th>
-              <th
-                scope="col"
-                style={{ textAlign: "right", borderBottom: "1px solid #ccc", padding: 8 }}
-              >
+              <th scope="col">Business</th>
+              <th scope="col" data-align="right">
                 Total scans
               </th>
-              <th scope="col" style={{ borderBottom: "1px solid #ccc", padding: 8 }}>
-                <span
-                  style={{
-                    position: "absolute",
-                    width: 1,
-                    height: 1,
-                    overflow: "hidden",
-                    clip: "rect(0 0 0 0)",
-                  }}
-                >
-                  Actions
-                </span>
+              <th scope="col">
+                <span className={tableStyles.visuallyHidden}>Actions</span>
               </th>
             </tr>
           </thead>
           <tbody>
             {totals.map((business) => (
               <tr key={business.businessId}>
-                <td style={{ padding: 8, borderBottom: "1px solid #eee" }}>{business.name}</td>
-                <td style={{ padding: 8, borderBottom: "1px solid #eee", textAlign: "right" }}>
-                  {business.totalScans}
-                </td>
-                <td style={{ padding: 8, borderBottom: "1px solid #eee", textAlign: "right" }}>
+                <td>{business.name}</td>
+                <td data-align="right">{business.totalScans}</td>
+                <td data-align="right">
                   <a href={`/admin/dashboard/${business.businessId}`}>View details</a>
                 </td>
               </tr>
@@ -69,6 +68,6 @@ export default async function AdminDashboardPage() {
           </tbody>
         </table>
       )}
-    </main>
+    </AppShell>
   );
 }

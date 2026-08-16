@@ -1,0 +1,113 @@
+.businessList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+
+.businessCard {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  padding: var(--space-5);
+}
+
+.businessHeader {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-4);
+  flex-wrap: wrap;
+  margin-bottom: var(--space-5);
+}
+
+.businessName {
+  font-size: 17px;
+  font-weight: 650;
+}
+
+.businessUrl {
+  font-size: 13px;
+  color: var(--color-ink-muted);
+  margin-top: 2px;
+}
+
+.sections {
+  display: grid;
+  gap: var(--space-6);
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+}
+
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.sectionTitle {
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--color-ink-muted);
+}
+
+.itemList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-2) 0;
+  border-bottom: 1px solid var(--color-border);
+  font-size: 14px;
+}
+
+.item:last-child {
+  border-bottom: none;
+}
+
+.itemPrimary {
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.itemMeta {
+  font-size: 12px;
+  color: var(--color-ink-muted);
+  flex-shrink: 0;
+}
+
+.emptyNote {
+  font-size: 13px;
+  color: var(--color-ink-muted);
+}
+
+.inlineForm {
+  display: grid;
+  gap: var(--space-2);
+  margin-top: var(--space-1);
+}
+
+.ownerBox {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.ownerEmail {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.ownerNote {
+  font-size: 12px;
+  color: var(--color-ink-muted);
+}

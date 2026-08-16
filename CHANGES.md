@@ -2,6 +2,55 @@
 
 ## Unreleased
 
+### 2026-08-16 — First real UI/UX pass (via `/impeccable`)
+Outside the versioned V1-V5 roadmap. Every screen (login, admin business
+management, both admin dashboards, the business owner's own dashboard)
+was plain, unstyled inline-HTML through the end of V5 — this was the
+first actual design pass, run through `/impeccable init` → new-work →
+finish review.
+
+`/impeccable init` wrote `PRODUCT.md` (users, purpose, positioning,
+constraints — confirmed this is a paid/soon-to-be-paid service, so the
+UI needed to read as credible, not a hobby project). A real new-work
+decision round then offered a genuine roll (an assigned "Palengke Price
+Tag" world, a "Resibo Ledger" pick, a "Jet-Age Ticket Wallet"
+challenger, and the plain category-standard "Fintech SaaS Dashboard" as
+the standing exit) — the owner chose the standing exit, with **Oripio**
+(a reference screenshot shared twice) as the craft bar. Recorded as a
+durable brand commitment in `PRODUCT.md`.
+
+Built: a design-token system in `globals.css` (one restrained green
+accent, a 3-step ink/muted text scale, a spacing/radius/shadow scale,
+self-hosted Hanken Grotesk), a shared `AppShell` sidebar+content layout
+(collapses to a stacked top bar under 860px) plus a small shared
+component set (`Card`, `StatCard`, `Badge`, `SubmitButton`) and shared
+form/table stylesheets — all in the new `src/shared/ui/` — applied
+across all five screens. No functional/data changes; purely visual.
+
+Reviewer (`impeccable-finish-reviewer`) findings, all fixed and
+re-verified: (1) `--color-ink-muted` failed WCAG contrast on white
+(~3.1:1) — darkened to a value that passes (~4.8:1), fixing every table
+header, URL, and chart axis label using it; (2) the platform admin's
+actual post-login landing page (`/admin/businesses`) didn't match the
+direction contract's promised "leads with stat cards" pattern — added a
+Businesses/Total-scans stat-card row reusing the existing analytics
+query; (3) no form submit button showed a pending/loading state — added
+a shared `SubmitButton` (`useFormStatus`-based) used by every form in
+the app. Detector (`detect.mjs`) ran clean on all changed files, both
+before and after the fixes.
+
+`DESIGN.md` (+ `.impeccable/design.json` sidecar) now records the built
+system as ground truth for future UI work — read it before extending
+any screen rather than re-deriving conventions from scratch.
+
+Verified visually via headless-Chrome screenshots (desktop 1440px +
+mobile 390px) against real production data, both before and after the
+review fixes — including catching and fixing a genuine mobile-layout
+defect the screenshots surfaced (the sidebar's nav row was truncating
+"Dashboard" to "Dast" and cramping the logout button at narrow widths;
+fixed by giving nav its own full-width row on mobile instead of sharing
+one with the brand mark and logout button).
+
 ### 2026-08-16 — Login page moved to root; login now redirects straight to the dashboard
 Outside the versioned V1-V5 roadmap (a fix, not a new phase). The
 production root URL (`/`) had never been touched since `create-next-app`
