@@ -2,7 +2,7 @@ import {
   addBusinessOwnerAction,
   createBranchAction,
   createBusinessAction,
-  createCardAction,
+  createPlateAction,
 } from "@/features/business-management/actions";
 import { getBusinessScanTotals } from "@/features/analytics/api";
 import { listBusinesses } from "@/features/business-management/api";
@@ -133,30 +133,30 @@ export default async function AdminBusinessesPage({
 
               <div className={styles.sections}>
                 <div className={styles.section}>
-                  <span className={styles.sectionTitle}>Cards</span>
+                  <span className={styles.sectionTitle}>Plates</span>
                   <div className={styles.itemList}>
-                    {business.cards.map((card) => (
-                      <div key={card.cardId} className={styles.item}>
-                        <a href={`/r/${card.slug}`} className={styles.itemPrimary}>
-                          /r/{card.slug}
+                    {business.plates.map((plate) => (
+                      <div key={plate.plateId} className={styles.item}>
+                        <a href={`/r/${plate.slug}`} className={styles.itemPrimary}>
+                          /r/{plate.slug}
                         </a>
                         <span className={styles.itemMeta}>
-                          {card.type} ·{" "}
-                          {card.branchId ? branchById.get(card.branchId) ?? "unknown branch" : "no branch"}
+                          {plate.capability} ·{" "}
+                          {plate.branchId ? branchById.get(plate.branchId) ?? "unknown branch" : "no branch"}
                         </span>
                       </div>
                     ))}
-                    {business.cards.length === 0 && <p className={styles.emptyNote}>No cards yet.</p>}
+                    {business.plates.length === 0 && <p className={styles.emptyNote}>No plates yet.</p>}
                   </div>
                   <form
-                    action={createCardAction.bind(null, business.businessId)}
+                    action={createPlateAction.bind(null, business.businessId)}
                     className={styles.inlineForm}
                   >
                     <input
                       className={formStyles.input}
                       type="text"
                       name="slug"
-                      placeholder="Card slug"
+                      placeholder="Plate slug"
                       required
                       pattern="[a-z0-9-]+"
                     />
@@ -172,7 +172,7 @@ export default async function AdminBusinessesPage({
                       className={`${formStyles.buttonSecondary} ${formStyles.buttonSmall}`}
                       pendingLabel="Adding…"
                     >
-                      Add card
+                      Add plate
                     </SubmitButton>
                   </form>
                 </div>

@@ -143,3 +143,50 @@ new permission model, `business_owner` stays read-only, no dedicated
       complete once this ships.
 
 **Phase 5 (V5) complete. V1-V5 roadmap complete.**
+
+## Phase 6 — V6: Plate Inventory & Reseller Model
+
+Architecture confirmed (see `ARCHITECTURE.md` § V6) — bulk-manufactured
+hardware exists as inventory before any business owns it. First
+genuinely structural schema change since V4 (`Card`→`Plate` rename,
+`businessId` becomes nullable). Real deadline: a real 20-unit NFC pilot
+batch is already ordered and arrives in ~2 weeks — V6a must ship before
+those units can be provisioned.
+
+- [ ] **6a. Schema migration** — not started
+      Rename `cards`→`plates`, `type`→`capability` (add `combo`,
+      `businessId` now nullable), add `status` enum
+      (`unassigned`|`active`|`suspended`, existing real rows backfilled
+      to `active`), add `batches` table + `plates.batchId`, add
+      `scan_events.interactionType`. No UI/behavior change — same
+      low-risk, schema-only pattern as 1a/4a/5a. **Gates the real
+      hardware batch — must ship before the 20 ordered units arrive.**
+- [ ] **6b. Real QR/NFC attribution + unassigned/suspended redirect** — not started
+      `GET /r/[slug]` reads a `?src=qr`/`?src=nfc` query marker and logs
+      the real `interactionType` on `ScanEvent` (missing marker →
+      `"unknown"`). Also defines distinct redirect behavior for an
+      `unassigned` plate (never sold) vs. a `suspended` one (was active,
+      paused) instead of reusing the generic malformed-URL 500.
+- [ ] **6c. Bulk batch generator script** — not started
+      TypeScript, extends `scripts/generate-qr.ts`'s slug/QR logic
+      (`scripts/generate-batch.ts` already exists as a first pass from
+      planning — needs review/hardening as a real sub-phase). Generates
+      unique slugs, QR PNGs, NFC payload text (with the `?src=` marker),
+      a manifest.csv, and a spec-sheet for a physical supplier order.
+- [ ] **6d. Admin inventory UI** — not started
+      `/admin/plates` — list/filter plates by status/batch, assign an
+      `unassigned` plate to a business (+ optional branch) to make it
+      `active`, edit `capability`, toggle `active`/`suspended`. This is
+      also the tool used to provision the 20-unit NFC pilot batch by
+      hand once it arrives.
+- [ ] **6e. Channel breakdown on dashboards** — not started
+      Once `interactionType` is real data, add a qr-vs-nfc breakdown to
+      the shared `BusinessAnalyticsView` (same pattern as the existing
+      card-type breakdown) — both the admin detail page and a business
+      owner's own `/dashboard` get it for free.
+
+**Not in scope for V6, deliberately**: no billing/payment system
+(suspension is a manual admin toggle only), no custom domain (staying on
+the free `.vercel.app` subdomain), no generic per-plate redirect target
+beyond Google review links (menu/website destinations are future work,
+not built speculatively now).

@@ -8,17 +8,17 @@ import {
   createBranch,
   createBusiness,
   createBusinessOwner,
-  createCard,
+  createPlate,
   isSlugTaken,
 } from "./api";
 
 // This action is gated by real per-user sessions (V4): src/proxy.ts only
 // does an optimistic cookie-presence redirect for UX, it is NOT the
 // security boundary — that's requirePlatformAdmin() below and inside
-// each of createBusiness()/createCard()/isSlugTaken() themselves
+// each of createBusiness()/createPlate()/isSlugTaken() themselves
 // (defense in depth). The explicit call here, before the try block, is
 // deliberate and required, not redundant with those inner calls: if it
-// were only checked inside createBusiness()/createCard() (both called
+// were only checked inside createBusiness()/createPlate() (both called
 // from within the try below), requirePlatformAdmin()'s redirect() would
 // throw *inside* that try and get caught by the generic catch as if it
 // were an ordinary error — silently turning "please log back in" into a
@@ -53,7 +53,7 @@ export async function createBusinessAction(formData: FormData) {
   // Validate and check slug availability before creating the business
   // row. Without this, an ordinary typo (duplicate or malformed slug) —
   // ordinary admin usage, not a rare failure — would leave a permanent
-  // orphan business with no card, since V2 has no delete/update yet.
+  // orphan business with no plate, since V2 has no delete/update yet.
   if (!isValidSlug(slug)) {
     redirect(
       `/admin/businesses?error=${encodeURIComponent(
@@ -78,7 +78,7 @@ export async function createBusinessAction(formData: FormData) {
 
   try {
     const business = await createBusiness({ name, googleReviewUrl });
-    await createCard({ businessId: business.id, slug });
+    await createPlate({ businessId: business.id, slug });
     if (ownerEmail && ownerPassword) {
       await createBusinessOwner({ businessId: business.id, email: ownerEmail, password: ownerPassword });
     }
@@ -145,21 +145,21 @@ export async function createBranchAction(businessId: string, formData: FormData)
 // addBusinessOwnerAction above. Unlike createBusinessAction, no
 // isSlugTaken() pre-check is needed here — a duplicate/malformed slug
 // here doesn't risk orphaning anything (this only ever inserts a single
-// card row, never a business), so createCard()'s own validation and
+// plate row, never a business), so createPlate()'s own validation and
 // unique-constraint handling is sufficient.
-export async function createCardAction(businessId: string, formData: FormData) {
+export async function createPlateAction(businessId: string, formData: FormData) {
   await requirePlatformAdmin();
 
   const slug = formField(formData, "slug");
   const branchId = formField(formData, "branchId");
 
   try {
-    await createCard({ businessId, slug, branchId: branchId || undefined });
+    await createPlate({ businessId, slug, branchId: branchId || undefined });
   } catch (err) {
     if (err instanceof BusinessManagementError) {
       redirect(`/admin/businesses?error=${encodeURIComponent(err.message)}`);
     }
-    console.error("createCardAction: unexpected error", err);
+    console.error("createPlateAction: unexpected error", err);
     redirect(`/admin/businesses?error=${encodeURIComponent("Something went wrong.")}`);
   }
 

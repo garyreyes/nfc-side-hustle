@@ -8,8 +8,8 @@ const hankenGrotesk = Hanken_Grotesk({
 });
 
 export const metadata: Metadata = {
-  title: "Review Card Dashboard",
-  description: "QR/NFC review card management and scan analytics.",
+  title: "Review Plate Dashboard",
+  description: "QR/NFC review plate management and scan analytics.",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
@@ -27,7 +27,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
           shadow, a white sidebar with a green active-nav state, Hanken
           Grotesk throughout, tabular numerals on every stat/count.
           STORY: A platform admin or a small-business owner opens the
-          dashboard, immediately reads their scan numbers and card/branch
+          dashboard, immediately reads their scan numbers and plate/branch
           list without friction, and trusts it enough to be a paid tool.
           FIRST VIEWPORT: A centered login card pre-auth; post-auth, a
           fixed sidebar (brand, nav, identity+logout) beside a content
