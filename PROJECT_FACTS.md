@@ -2,6 +2,18 @@
 
 Durable, project-specific decisions that should survive across sessions.
 
+- The login page lives at `/` (root), not `/login` — `/login` was
+  deleted. The root route was still Next's untouched `create-next-app`
+  boilerplate through the end of the V1-V5 roadmap; this replaced it
+  with the real login page (same logic that used to live at `/login`,
+  moved as-is), and `loginAction`'s success path now redirects straight
+  to the role-appropriate dashboard (`/admin/businesses` or
+  `/dashboard`) instead of back to the login page requiring a manual
+  click. Every hardcoded `/login` redirect target (`proxy.ts`,
+  `lib/auth/dal.ts`, `features/auth/actions.ts`) was updated to `/`
+  accordingly — any future code adding a new auth-guarded page must
+  redirect unauthenticated visitors to `/`, not `/login`.
+
 - `cards.businessId` has no `onDelete` behavior set (defaults to
   Postgres's restrict/`NO ACTION`) — a business can never actually be
   deleted while it still has any cards. This predates V5, but V5 added
@@ -57,7 +69,8 @@ Durable, project-specific decisions that should survive across sessions.
   `api.ts` function from inside a `try/catch` must call
   `requirePlatformAdmin()` itself first, outside that `try` — otherwise
   its internal `redirect()` can get caught by a generic `catch` and
-  silently rerouted to a misleading error instead of `/login`. Hit and
+  silently rerouted to a misleading error instead of `/` (the login
+  page). Hit and
   fixed once already in `createBusinessAction` (4c); confirmed correctly
   followed in 4d's `createBusinessAction` extension and the new
   `addBusinessOwnerAction`. Keep following it for any future mutation
