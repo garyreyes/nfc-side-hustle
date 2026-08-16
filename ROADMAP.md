@@ -181,7 +181,7 @@ those units can be provisioned.
       `active`, edit `capability`, toggle `active`/`suspended`. This is
       also the tool used to provision the 20-unit NFC pilot batch by
       hand once it arrives.
-- [ ] **6e. Channel breakdown on dashboards** — not started
+- [x] **6e. Channel breakdown on dashboards** — done
       Once `interactionType` is real data, add a qr-vs-nfc breakdown to
       the shared `BusinessAnalyticsView` (same pattern as the existing
       card-type breakdown) — both the admin detail page and a business
@@ -192,3 +192,5 @@ those units can be provisioned.
 the free `.vercel.app` subdomain), no generic per-plate redirect target
 beyond Google review links (menu/website destinations are future work,
 not built speculatively now).
+
+**Phase 6 (V6) complete.**

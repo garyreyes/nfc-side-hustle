@@ -2,7 +2,7 @@ import "server-only";
 import { and, eq, gte, isNull, sql } from "drizzle-orm";
 import { requirePlatformAdmin, sessionCanAccessBusiness } from "@/lib/auth/dal";
 import { db } from "@/lib/db/client";
-import { branches, businesses, capabilityEnum, plates, scanEvents } from "@/lib/db/schema";
+import { branches, businesses, capabilityEnum, interactionTypeEnum, plates, scanEvents } from "@/lib/db/schema";
 import { DASHBOARD_DATA_START_AT, MANILA_TIMEZONE, type ScanRangeDays } from "./constants";
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -138,6 +138,42 @@ export async function getScanBreakdownByCapability(
 
   const counted = new Map(rows.map((row) => [row.capability, row.count]));
   return CAPABILITIES.map((capability) => ({ capability, count: counted.get(capability) ?? 0 }));
+}
+
+export type InteractionTypeBreakdown = {
+  interactionType: "qr" | "nfc" | "unknown";
+  count: number;
+};
+
+// Derived from the schema's enum, same reasoning as CAPABILITIES above.
+// Rooted at scan_events (not plates) — interactionType is a property of
+// the individual scan, not the plate, so a business with real scans but
+// none yet through one particular channel still shows a real 0 for it,
+// not a missing row.
+const INTERACTION_TYPES = interactionTypeEnum.enumValues;
+
+export async function getScanBreakdownByInteractionType(
+  businessId: string,
+  startAt: Date = DASHBOARD_DATA_START_AT
+): Promise<InteractionTypeBreakdown[] | null> {
+  if (!(await businessExists(businessId))) return null;
+  if (!(await sessionCanAccessBusiness(businessId))) return null;
+
+  const rows = await db
+    .select({
+      interactionType: scanEvents.interactionType,
+      count: sql<number>`count(${scanEvents.id})`.mapWith(Number),
+    })
+    .from(scanEvents)
+    .innerJoin(plates, eq(plates.id, scanEvents.plateId))
+    .where(and(eq(plates.businessId, businessId), gte(scanEvents.scannedAt, startAt)))
+    .groupBy(scanEvents.interactionType);
+
+  const counted = new Map(rows.map((row) => [row.interactionType, row.count]));
+  return INTERACTION_TYPES.map((interactionType) => ({
+    interactionType,
+    count: counted.get(interactionType) ?? 0,
+  }));
 }
 
 export type BranchScanBreakdown = {

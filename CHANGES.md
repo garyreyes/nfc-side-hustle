@@ -2,6 +2,31 @@
 
 ## Unreleased
 
+### 2026-08-17 — Channel breakdown on dashboards (6e) — V6 complete
+Fifth and last sub-phase of V6. Added `getScanBreakdownByInteractionType()`
+to `features/analytics/api.ts` — same "derived from the schema enum,
+zero-filled" pattern as the existing capability breakdown, but rooted at
+`scan_events` (not `plates`), since interaction type is a property of
+the individual scan, not the plate. Wired into the shared
+`BusinessAnalyticsView` as a new "By channel" table, so both the admin
+detail page and a business owner's own `/dashboard` get real qr-vs-nfc
+data for free — the actual payoff of everything 6a-6d built (the
+`?src=` marker, the redirect route reading it, the inventory model that
+led to it).
+
+Read-only, no schema change, no new write path — verified more lightly
+than 6d's write actions accordingly: ran the same grouped-count query
+logic directly against real production data (Saffron's real business)
+and confirmed the per-channel counts summed to exactly the same total
+as an independent unscoped count query (1 qr + 1 nfc + 6 unknown = 8,
+matching).
+
+**V6 (plate inventory & reseller model) is complete — 6a schema/rename,
+6b real attribution + status-aware redirect, 6c hardened batch
+generator, 6d admin inventory UI, 6e channel breakdown all shipped.**
+The 20-unit real NFC pilot batch can now be provisioned end-to-end
+through `/admin/plates` once it arrives.
+
 ### 2026-08-17 — Admin inventory UI (6d)
 Fourth sub-phase of V6. New `/admin/plates` page: lists every plate with
 status/capability/business/branch/batch, filterable by status
