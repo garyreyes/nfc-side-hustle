@@ -153,7 +153,7 @@ genuinely structural schema change since V4 (`Card`→`Plate` rename,
 batch is already ordered and arrives in ~2 weeks — V6a must ship before
 those units can be provisioned.
 
-- [ ] **6a. Schema migration** — not started
+- [x] **6a. Schema migration** — done
       Rename `cards`→`plates`, `type`→`capability` (add `combo`,
       `businessId` now nullable), add `status` enum
       (`unassigned`|`active`|`suspended`, existing real rows backfilled
@@ -161,6 +161,8 @@ those units can be provisioned.
       `scan_events.interactionType`. No UI/behavior change — same
       low-risk, schema-only pattern as 1a/4a/5a. **Gates the real
       hardware batch — must ship before the 20 ordered units arrive.**
+      Caused a brief live outage (migration ran before the matching code
+      deployed) — fixed immediately, see `CHANGES.md`/`PROJECT_FACTS.md`.
 - [ ] **6b. Real QR/NFC attribution + unassigned/suspended redirect** — not started
       `GET /r/[slug]` reads a `?src=qr`/`?src=nfc` query marker and logs
       the real `interactionType` on `ScanEvent` (missing marker →

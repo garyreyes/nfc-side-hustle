@@ -2,6 +2,28 @@
 
 Durable, project-specific decisions that should survive across sessions.
 
+- **A schema migration that renames/removes something the currently
+  deployed code depends on must ship in the same motion as the matching
+  code deploy — never run the migration first and deploy separately
+  later**, even with explicit confirmation on each step individually.
+  Hit this the hard way on 6a: running the `cards`→`plates` rename
+  migration against production before the renamed code was deployed left
+  the live `/r/[slug]` redirect route 500ing for real customers for a
+  few minutes (old deployed code still querying the now-nonexistent
+  `cards` table). Fixed by immediately shipping the already-tested code.
+  Any future migration that renames or drops something in current use
+  needs the code change committed, pushed, and ready to merge *before*
+  the migration runs — ideally merged within seconds of the migration
+  completing, not as a separate later step.
+- `Card` was renamed to `Plate` in 6a (V6) — schema, `features/` modules,
+  and the admin UI all say "Plate" now, matching the term used with the
+  Alibaba supplier and going forward for the physical product. The one
+  exception: the underlying Postgres enum type name for capability
+  stayed `card_type` (only the TS binding is `capabilityEnum`) —
+  deliberate, to avoid the extra migration risk of an `ALTER TYPE
+  RENAME` for a purely internal detail nobody outside `schema.ts` sees.
+  Any future schema work touching capability should be aware the SQL
+  type name and the TS/domain name now differ on purpose.
 - The login page lives at `/` (root), not `/login` — `/login` was
   deleted. The root route was still Next's untouched `create-next-app`
   boilerplate through the end of the V1-V5 roadmap; this replaced it
