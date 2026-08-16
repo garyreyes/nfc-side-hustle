@@ -539,9 +539,79 @@ scripts/
   generate-batch.ts                         # NEW — bulk slug + QR + manifest + spec-sheet generator for a physical order
 ```
 
+## V7 Architecture — Internal Inventory & Cost Tracking
+
+V7 adds hardware procurement/stock bookkeeping for the platform owner and
+their business partner only — never seen by clients or business owners.
+It answers four questions per capability (qr/nfc/combo): how many units
+were ordered, what did they cost, how many sold today/this
+week/this month/all-time, and how many remain unsold.
+
+**Purely additive, two nullable columns, no rename, no behavior change**
+to anything existing:
+
+```
+Plate (... unchanged ..., assignedAt: timestamp, nullable,   [NEW]
+              unitCostCents: integer, nullable)               [NEW]
+```
+
+- `assignedAt` — set the moment `assignPlateToBusiness()` runs (V6d).
+  Nothing before V7 recorded *when* a plate was sold, only its current
+  `status` — this is what makes time-bucketed sales reporting possible.
+- `unitCostCents` — stored as an integer (₱ centavos), not a float, to
+  avoid rounding error. Only set for plates created through V7's new
+  arrival flow (below); plates made through the existing "Add plate"
+  form (`/admin/businesses`) stay cost-`null`, same as every plate made
+  before V7 existed.
+
+**"Ordered" and "remaining" need no new fields at all** — both derive
+directly from `plates` grouped by `capability`: ordered (all-time) is
+every plate ever created with that capability, remaining is every plate
+with that capability still `status = "unassigned"`. This only works
+because of a deliberate workflow decision: **every physical unit gets a
+plate row the moment it physically arrives**, even generic, unserialized
+NFC cards with no printed slug yet — not lazily at the moment each one
+sells, which was the assumption before V7. Without this, a box of
+not-yet-sold units would have zero database representation and
+"remaining" would be uncomputable from `plates` alone.
+
+**New capability — `/admin/inventory`**:
+- A "Record inventory arrival" form: batch name, capability, quantity,
+  unit cost. Submitting it creates a new `batches` row (V6a) and *N*
+  real `unassigned` plate rows with that capability and cost — the
+  moment a physical delivery becomes trackable stock, independent of
+  whether any individual unit has been written/assigned yet.
+- A per-capability breakdown: ordered, sold (today/week/month/all-time),
+  remaining, total + average unit cost (only counting plates where cost
+  was actually recorded, since pre-V7 plates and ad-hoc "Add plate"
+  creations have none).
+- Gated by the existing `requirePlatformAdmin()` — no new role, no new
+  permission model. The business partner shares the one existing admin
+  login rather than getting a separate account, a deliberate choice to
+  keep this feature from growing its own access-control surface.
+
+**Deliberately out of scope**: no revenue or sale-price tracking (cost
+and counts only — "sold" means the assignment event, not a payment
+record); no cost field added to the existing "Add plate" form (that path
+stays the ad-hoc, untracked one); no new table — `plates` and the
+existing `batches` table already model this once the two columns above
+exist.
+
+Folder structure additions for V7:
+```
+src/
+  lib/db/schema.ts                          # plates + assignedAt, unitCostCents
+  features/
+    business-management/
+      api.ts                                # + recordInventoryArrival(); assignPlateToBusiness() also sets assignedAt
+      actions.ts                            # + recordInventoryArrivalAction
+  app/
+    admin/inventory/page.tsx                # NEW — arrival form + per-capability breakdown
+```
+
 ## Roadmap context
 
-This is Version 6 of 6 from the project roadmap:
+This is Version 7 of 7 from the project roadmap:
 1. V1 — one business, one QR code, redirect + log ✅
 2. V2 — multiple businesses, routing (already works), admin CRUD
    (Create + Read) ✅
@@ -551,12 +621,15 @@ This is Version 6 of 6 from the project roadmap:
    entirely ✅
 5. V5 — optional per-branch locations, each with its own review URL and
    scan tracking, rolling up into the existing per-business dashboard ✅
-6. **V6 (this doc)** — plate inventory & reseller model: bulk-manufactured
-   hardware exists before a business owns it, real qr-vs-nfc attribution,
-   manual suspend/reassign lifecycle
+6. V6 — plate inventory & reseller model: bulk-manufactured hardware
+   exists before a business owns it, real qr-vs-nfc attribution, manual
+   suspend/reassign lifecycle ✅
+7. **V7 (this doc)** — internal inventory & cost tracking: owner-only
+   procurement bookkeeping (ordered/sold/remaining/cost per capability),
+   built on the same `plates`/`batches` tables V6 introduced
 
-The entity/folder choices from V1 were made specifically so V2–V6 extend
-this structure rather than requiring a rebuild — V6 continues that in
-spirit (same folders, same patterns) even though the Card→Plate rename
-and the nullable `businessId` are the first genuinely structural changes
-since V4's auth overhaul.
+The entity/folder choices from V1 were made specifically so later
+versions extend this structure rather than requiring a rebuild — V7
+continues that in spirit (same folders, same patterns, no rename this
+time) while shifting one real workflow assumption: physical units now
+get a database row on arrival, not lazily at the moment of sale.

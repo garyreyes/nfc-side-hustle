@@ -1,4 +1,4 @@
-import { pgEnum, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
+import { integer, pgEnum, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
 
 // Postgres type name kept as "card_type" even though the TS binding and
 // column are renamed to capability/capabilityEnum — renaming the
@@ -91,6 +91,17 @@ export const plates = pgTable("plates", {
   // Losing the batch association (batch record deleted) must never break
   // a live plate — set null, not cascade, same principle as branchId.
   batchId: uuid("batch_id").references(() => batches.id, { onDelete: "set null" }),
+  // Set by assignPlateToBusiness() (V6d) the moment status flips
+  // unassigned -> active. Nothing before V7 recorded *when* a plate was
+  // sold, only its current status — this is what makes time-bucketed
+  // sales reporting (today/week/month/all-time) possible at all.
+  assignedAt: timestamp("assigned_at", { withTimezone: true }),
+  // Stored as an integer (centavos), not a float, to avoid rounding
+  // error — standard money-handling practice. Only set for plates
+  // created through V7's inventory-arrival flow; plates made through
+  // the existing "Add plate" form, and every plate created before V7
+  // existed, stay null (an untracked-cost plate, not a zero-cost one).
+  unitCostCents: integer("unit_cost_cents"),
 });
 
 export const scanEvents = pgTable("scan_events", {

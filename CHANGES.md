@@ -2,6 +2,48 @@
 
 ## Unreleased
 
+### 2026-08-17 — Internal inventory & cost tracking (7a) — V7 complete
+First and only sub-phase of V7 (see `ARCHITECTURE.md` § V7 /
+`ROADMAP.md` Phase 7) — owner-only procurement bookkeeping, never seen
+by clients or business owners. Two new nullable columns on `plates`:
+`assignedAt` (set by `assignPlateToBusiness()`, the only thing that now
+records *when* a plate was sold — nothing before V7 did) and
+`unitCostCents` (integer centavos, only set for plates created through
+the new arrival flow).
+
+New `/admin/inventory` page: a "Record inventory arrival" form (batch
+name, capability, quantity, unit cost) that creates a real `batches` row
+plus that many real `unassigned` plates — the moment a physical delivery
+becomes trackable stock, even generic unserialized cards with nothing
+printed yet. This is a deliberate workflow shift from "create a plate
+row lazily when it sells" to "create it the moment it physically
+arrives," which is what makes "how many remain" computable directly from
+`plates` (`count(status = "unassigned")`) with no separate
+ordered-quantity ledger needed. A per-capability (qr/nfc/combo)
+breakdown table shows ordered (all-time), sold (today/week/month/all-
+time, in Asia/Manila local time — no DST, so a fixed +08:00 offset is
+correct), remaining, and total/average cost (only counting plates whose
+cost was actually recorded).
+
+Centralized slug-generation (`generateRandomSlug`/`generateUniqueSlugs`)
+into `lib/slug.ts`, removing the duplicate copy in
+`scripts/generate-batch.ts` — same precedent that already moved
+`isValidSlug()` there after it was duplicated once before.
+
+Classified as correctness-critical (money math + stock counts) and
+verified accordingly — real data, no new test harness, same standing
+approach as 6d/6e. Verified end-to-end against real production via a
+temporary authenticated Route Handler: invalid quantity and negative
+cost both rejected cleanly; a real 3-unit qr arrival created exactly 3
+unassigned plates with the correct cost and no `assignedAt`; the summary
+deltas matched exactly (+3 ordered, +₱4.50 total cost); a duplicate
+batch name rejected; assigning one plate to a business set `assignedAt`
+and correctly moved remaining/soldToday/soldAllTime by exactly one. All
+temporary businesses/plates/batches/sessions and the verification route
+deleted afterward and confirmed absent.
+
+**V7 (internal inventory & cost tracking) is complete.**
+
 ### 2026-08-17 — Channel breakdown on dashboards (6e) — V6 complete
 Fifth and last sub-phase of V6. Added `getScanBreakdownByInteractionType()`
 to `features/analytics/api.ts` — same "derived from the schema enum,

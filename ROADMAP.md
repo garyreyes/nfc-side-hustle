@@ -194,3 +194,30 @@ beyond Google review links (menu/website destinations are future work,
 not built speculatively now).
 
 **Phase 6 (V6) complete.**
+
+## Phase 7 — V7: Internal Inventory & Cost Tracking
+
+Architecture confirmed (see `ARCHITECTURE.md` § V7) — owner-only
+procurement bookkeeping, never seen by clients. Purely additive schema
+(two nullable columns on `plates`), no rename. Real deadline is soft (no
+hardware order depends on this shipping first), but the workflow shift
+it requires — plates get created on physical arrival, not lazily at sale
+time — should be in place before the 20-unit NFC pilot batch arrives so
+that batch can go through it too.
+
+- [x] **7a. Schema + inventory arrival + reporting** — done
+      Add `plates.assignedAt` (set by `assignPlateToBusiness()`) and
+      `plates.unitCostCents`. Add `recordInventoryArrival()` to
+      `business-management/api.ts` (creates a `batches` row + N
+      `unassigned` plates with capability/cost). Build `/admin/inventory`:
+      the arrival form plus a per-capability (qr/nfc/combo) breakdown —
+      ordered, sold today/week/month/all-time, remaining, total/average
+      cost. Single sub-phase — small enough not to force an artificial
+      split, matching 6d's precedent of shipping API + UI together.
+
+**Not in scope for V7, deliberately**: no revenue/sale-price tracking
+(cost and counts only), no cost field on the existing "Add plate" form,
+no new permission tier (the business partner shares the existing admin
+login).
+
+**Phase 7 (V7) complete.**
