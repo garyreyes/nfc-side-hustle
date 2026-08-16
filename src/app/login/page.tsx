@@ -20,6 +20,11 @@ export default async function LoginPage({
           <p>
             Logged in as <strong>{session.email}</strong> ({session.role})
           </p>
+          <p>
+            <a href={session.role === "platform_admin" ? "/admin/businesses" : "/dashboard"}>
+              Go to {session.role === "platform_admin" ? "admin" : "your dashboard"}
+            </a>
+          </p>
           <form action={logoutAction}>
             <button type="submit">Log out</button>
           </form>

@@ -1,4 +1,4 @@
-import { createBusinessAction } from "@/features/business-management/actions";
+import { addBusinessOwnerAction, createBusinessAction } from "@/features/business-management/actions";
 import { listBusinesses } from "@/features/business-management/api";
 import { requirePlatformAdmin } from "@/lib/auth/dal";
 
@@ -36,6 +36,16 @@ export default async function AdminBusinessesPage({
           <br />
           <input type="text" name="slug" required pattern="[a-z0-9-]+" />
         </label>
+        <label>
+          Owner email (optional)
+          <br />
+          <input type="email" name="ownerEmail" />
+        </label>
+        <label>
+          Owner password (optional)
+          <br />
+          <input type="password" name="ownerPassword" />
+        </label>
         <button type="submit">Add business</button>
       </form>
 
@@ -52,6 +62,26 @@ export default async function AdminBusinessesPage({
               ))}
               {business.cards.length === 0 && <li>(no cards)</li>}
             </ul>
+            {business.ownerEmail ? (
+              <p>Owner: {business.ownerEmail}</p>
+            ) : (
+              <form
+                action={addBusinessOwnerAction.bind(null, business.businessId)}
+                style={{ display: "grid", gap: 4, marginTop: 4, maxWidth: 300 }}
+              >
+                <label>
+                  Owner email
+                  <br />
+                  <input type="email" name="email" required />
+                </label>
+                <label>
+                  Owner password
+                  <br />
+                  <input type="password" name="password" required />
+                </label>
+                <button type="submit">Add owner</button>
+              </form>
+            )}
           </li>
         ))}
       </ul>

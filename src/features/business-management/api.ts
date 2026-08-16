@@ -1,8 +1,9 @@
 import "server-only";
 import { eq } from "drizzle-orm";
 import { requirePlatformAdmin } from "@/lib/auth/dal";
+import { hashPassword } from "@/lib/auth/passwords";
 import { db } from "@/lib/db/client";
-import { businesses, cards } from "@/lib/db/schema";
+import { businesses, cards, users } from "@/lib/db/schema";
 import { isValidSlug } from "@/lib/slug";
 
 export class BusinessManagementError extends Error {}
@@ -94,10 +95,85 @@ export async function createCard(input: {
   }
 }
 
+// Creates a business_owner account and links it to an existing business
+// in two separate writes (this driver doesn't support transactions — see
+// PROJECT_FACTS.md), so a failure between them could in principle leave
+// an unlinked User row. Accepted for the same reason 2b accepted the
+// analogous orphan-business risk: genuinely rare (both writes are simple
+// single-row operations against tables that were just validated), and
+// this is an admin-only, low-volume action, not a public write path.
+export async function createBusinessOwner(input: {
+  businessId: string;
+  email: string;
+  password: string;
+}) {
+  await requirePlatformAdmin();
+
+  const email = input.email.trim().toLowerCase();
+  if (!email) {
+    throw new BusinessManagementError("Owner email is required.");
+  }
+  if (!input.password) {
+    throw new BusinessManagementError("Owner password is required.");
+  }
+
+  // Pre-check rather than blindly overwriting: without this, a stale
+  // "no owner yet" form (e.g. a second browser tab that hasn't refreshed
+  // after a first submission) would silently reassign the business to a
+  // new owner and orphan the first one's account with no error and no
+  // trace of what happened.
+  const [business] = await db
+    .select({ id: businesses.id, ownerId: businesses.ownerId })
+    .from(businesses)
+    .where(eq(businesses.id, input.businessId));
+  if (!business) {
+    throw new BusinessManagementError("That business no longer exists.");
+  }
+  if (business.ownerId) {
+    throw new BusinessManagementError("This business already has an owner.");
+  }
+
+  const passwordHash = await hashPassword(input.password);
+
+  try {
+    const [owner] = await db
+      .insert(users)
+      .values({ email, passwordHash, role: "business_owner" })
+      .returning();
+
+    const [linked] = await db
+      .update(businesses)
+      .set({ ownerId: owner.id })
+      .where(eq(businesses.id, input.businessId))
+      .returning({ id: businesses.id });
+    if (!linked) {
+      // The business was deleted between the check above and this
+      // update — no delete-business feature exists yet, so this is
+      // effectively unreachable today, but silently leaving a
+      // business_owner account permanently unlinked would be a real
+      // data-integrity issue if that ever changes.
+      throw new BusinessManagementError(
+        "That business no longer exists — the owner account was created but not linked."
+      );
+    }
+
+    return owner;
+  } catch (err) {
+    if (err instanceof BusinessManagementError) {
+      throw err;
+    }
+    if (isPgError(err, PG_UNIQUE_VIOLATION)) {
+      throw new BusinessManagementError(`Email "${email}" is already in use.`);
+    }
+    throw err;
+  }
+}
+
 export type BusinessWithCards = {
   businessId: string;
   name: string;
   googleReviewUrl: string;
+  ownerEmail: string | null;
   cards: { cardId: string; slug: string; type: "qr" | "nfc" }[];
 };
 
@@ -109,12 +185,14 @@ export async function listBusinesses(): Promise<BusinessWithCards[]> {
       businessId: businesses.id,
       name: businesses.name,
       googleReviewUrl: businesses.googleReviewUrl,
+      ownerEmail: users.email,
       cardId: cards.id,
       slug: cards.slug,
       cardType: cards.type,
     })
     .from(businesses)
-    .leftJoin(cards, eq(cards.businessId, businesses.id));
+    .leftJoin(cards, eq(cards.businessId, businesses.id))
+    .leftJoin(users, eq(users.id, businesses.ownerId));
 
   const byBusiness = new Map<string, BusinessWithCards>();
   for (const row of rows) {
@@ -124,6 +202,7 @@ export async function listBusinesses(): Promise<BusinessWithCards[]> {
         businessId: row.businessId,
         name: row.name,
         googleReviewUrl: row.googleReviewUrl,
+        ownerEmail: row.ownerEmail,
         cards: [],
       };
       byBusiness.set(row.businessId, business);

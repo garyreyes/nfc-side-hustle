@@ -1,5 +1,6 @@
 import "server-only";
 import { and, eq, gte, sql } from "drizzle-orm";
+import { requirePlatformAdmin, sessionCanAccessBusiness } from "@/lib/auth/dal";
 import { db } from "@/lib/db/client";
 import { businesses, cardTypeEnum, cards, scanEvents } from "@/lib/db/schema";
 import { DASHBOARD_DATA_START_AT, MANILA_TIMEZONE, type ScanRangeDays } from "./constants";
@@ -28,6 +29,8 @@ export type BusinessScanTotal = {
 export async function getBusinessScanTotals(
   startAt: Date = DASHBOARD_DATA_START_AT
 ): Promise<BusinessScanTotal[]> {
+  await requirePlatformAdmin();
+
   return db
     .select({
       businessId: businesses.id,
@@ -74,6 +77,7 @@ export async function getScanTimeSeries(
   startAt: Date = DASHBOARD_DATA_START_AT
 ): Promise<ScanTimeSeriesPoint[] | null> {
   if (!(await businessExists(businessId))) return null;
+  if (!(await sessionCanAccessBusiness(businessId))) return null;
 
   // A generous UTC-only prefilter (Manila is UTC+8, so one extra day of
   // buffer covers any offset) — the exact Manila-local day boundary is
@@ -117,6 +121,7 @@ export async function getScanBreakdownByCardType(
   startAt: Date = DASHBOARD_DATA_START_AT
 ): Promise<CardTypeBreakdown[] | null> {
   if (!(await businessExists(businessId))) return null;
+  if (!(await sessionCanAccessBusiness(businessId))) return null;
 
   const rows = await db
     .select({
