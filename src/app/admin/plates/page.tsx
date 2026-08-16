@@ -57,6 +57,7 @@ export default async function AdminPlatesPage({
         { label: "Businesses", href: "/admin/businesses", active: false },
         { label: "Dashboard", href: "/admin/dashboard", active: false },
         { label: "Plates", href: "/admin/plates", active: true },
+        { label: "Inventory", href: "/admin/inventory", active: false },
       ]}
       email={session.email}
       roleLabel="Platform admin"

@@ -1,10 +1,11 @@
 import "server-only";
-import { and, eq, ne } from "drizzle-orm";
+import { and, eq, ne, sql } from "drizzle-orm";
+import { MANILA_TIMEZONE } from "@/features/analytics/constants";
 import { requirePlatformAdmin } from "@/lib/auth/dal";
 import { hashPassword } from "@/lib/auth/passwords";
 import { db } from "@/lib/db/client";
-import { batches, branches, businesses, plates, users } from "@/lib/db/schema";
-import { isValidSlug } from "@/lib/slug";
+import { batches, branches, businesses, capabilityEnum, plates, users } from "@/lib/db/schema";
+import { generateUniqueSlugs, isValidSlug } from "@/lib/slug";
 
 export class BusinessManagementError extends Error {}
 
@@ -368,7 +369,7 @@ export async function assignPlateToBusiness(input: { plateId: string; businessId
   try {
     const [updated] = await db
       .update(plates)
-      .set({ businessId: input.businessId, status: "active" })
+      .set({ businessId: input.businessId, status: "active", assignedAt: new Date() })
       .where(and(eq(plates.id, input.plateId), eq(plates.status, "unassigned")))
       .returning({ id: plates.id });
 
@@ -474,4 +475,159 @@ export async function setPlateStatus(input: { plateId: string; status: "active" 
     );
   }
   return updated;
+}
+
+const MAX_INVENTORY_QUANTITY = 1000;
+
+// V7: records a physical hardware delivery as real database rows the
+// moment it arrives — even generic, unserialized cards with nothing
+// printed yet — rather than waiting for each unit to be individually
+// sold. See ARCHITECTURE.md § V7: this is what makes "how many remain"
+// computable at all from `plates` alone.
+export async function recordInventoryArrival(input: {
+  batchName: string;
+  capability: "qr" | "nfc" | "combo";
+  quantity: number;
+  unitCostCents: number;
+}) {
+  await requirePlatformAdmin();
+
+  const batchName = input.batchName.trim();
+  if (!batchName) {
+    throw new BusinessManagementError("Batch name is required.");
+  }
+  if (batchName.length > MAX_NAME_LENGTH) {
+    throw new BusinessManagementError(`Batch name must be ${MAX_NAME_LENGTH} characters or fewer.`);
+  }
+  if (!Number.isInteger(input.quantity) || input.quantity <= 0) {
+    throw new BusinessManagementError("Quantity must be a positive whole number.");
+  }
+  if (input.quantity > MAX_INVENTORY_QUANTITY) {
+    throw new BusinessManagementError(`Quantity must be ${MAX_INVENTORY_QUANTITY} or fewer per arrival.`);
+  }
+  if (!Number.isInteger(input.unitCostCents) || input.unitCostCents < 0) {
+    throw new BusinessManagementError("Unit cost must be a non-negative whole number of centavos.");
+  }
+
+  let batch;
+  try {
+    [batch] = await db.insert(batches).values({ name: batchName }).returning();
+  } catch (err) {
+    if (isPgError(err, PG_UNIQUE_VIOLATION)) {
+      throw new BusinessManagementError(`A batch named "${batchName}" already exists.`);
+    }
+    throw err;
+  }
+
+  const slugs = generateUniqueSlugs(input.quantity);
+
+  try {
+    await db.insert(plates).values(
+      slugs.map((slug) => ({
+        slug,
+        capability: input.capability,
+        status: "unassigned" as const,
+        batchId: batch.id,
+        unitCostCents: input.unitCostCents,
+      }))
+    );
+  } catch (err) {
+    // No transaction support (see PROJECT_FACTS.md) — a failure here can
+    // leave an orphan batch row with zero plates. Same accepted-risk
+    // class as scripts/generate-batch.ts's identical two-insert sequence.
+    console.error(
+      `Batch "${batchName}" (id ${batch.id}) was created but inserting its plates failed — ` +
+        `the batch row is now orphaned with no plates. Delete it manually before retrying.`
+    );
+    throw err;
+  }
+
+  return batch;
+}
+
+// Manila has no DST, so a fixed +08:00 offset is always correct — same
+// reasoning already established for day-bucketing in analytics/api.ts,
+// but here real UTC instants are needed (not just calendar-day strings)
+// since these get compared directly against assignedAt timestamptz
+// values in SQL.
+function manilaDateParts(): { year: number; month: number; day: number } {
+  const todayStr = new Intl.DateTimeFormat("en-CA", { timeZone: MANILA_TIMEZONE }).format(new Date());
+  const [year, month, day] = todayStr.split("-").map(Number);
+  return { year, month, day };
+}
+
+function startOfManilaDay(): Date {
+  const { year, month, day } = manilaDateParts();
+  return new Date(Date.UTC(year, month - 1, day, -8, 0, 0));
+}
+
+function startOfManilaWeek(): Date {
+  const { year, month, day } = manilaDateParts();
+  const asUtcMidnight = new Date(Date.UTC(year, month - 1, day));
+  const daysSinceMonday = (asUtcMidnight.getUTCDay() + 6) % 7; // Mon=0 ... Sun=6
+  return new Date(Date.UTC(year, month - 1, day - daysSinceMonday, -8, 0, 0));
+}
+
+function startOfManilaMonth(): Date {
+  const { year, month } = manilaDateParts();
+  return new Date(Date.UTC(year, month - 1, 1, -8, 0, 0));
+}
+
+const CAPABILITIES = capabilityEnum.enumValues;
+
+export type CapabilityInventorySummary = {
+  capability: "qr" | "nfc" | "combo";
+  ordered: number;
+  remaining: number;
+  soldToday: number;
+  soldThisWeek: number;
+  soldThisMonth: number;
+  soldAllTime: number;
+  /** null means no plate of this capability has a recorded cost yet. */
+  totalCostCents: number | null;
+  averageCostCents: number | null;
+};
+
+export async function getInventorySummary(): Promise<CapabilityInventorySummary[]> {
+  await requirePlatformAdmin();
+
+  const todayStart = startOfManilaDay();
+  const weekStart = startOfManilaWeek();
+  const monthStart = startOfManilaMonth();
+
+  const rows = await db
+    .select({
+      capability: plates.capability,
+      ordered: sql<number>`count(*)`.mapWith(Number),
+      remaining: sql<number>`count(*) filter (where ${plates.status} = 'unassigned')`.mapWith(Number),
+      soldToday: sql<number>`count(*) filter (where ${plates.assignedAt} >= ${todayStart})`.mapWith(Number),
+      soldThisWeek: sql<number>`count(*) filter (where ${plates.assignedAt} >= ${weekStart})`.mapWith(Number),
+      soldThisMonth: sql<number>`count(*) filter (where ${plates.assignedAt} >= ${monthStart})`.mapWith(Number),
+      soldAllTime: sql<number>`count(*) filter (where ${plates.assignedAt} is not null)`.mapWith(Number),
+      // Left as raw string|null rather than .mapWith(Number) — Postgres
+      // returns sum()/avg() over an integer column as a value the driver
+      // may hand back as a string (bigint-safe), and a group with no
+      // cost recorded at all must stay null, not become 0.
+      totalCostCents: sql<string | null>`sum(${plates.unitCostCents})`,
+      averageCostCents: sql<string | null>`avg(${plates.unitCostCents})`,
+    })
+    .from(plates)
+    .groupBy(plates.capability);
+
+  const byCapability = new Map(rows.map((row) => [row.capability, row]));
+
+  return CAPABILITIES.map((capability) => {
+    const row = byCapability.get(capability);
+    return {
+      capability,
+      ordered: row?.ordered ?? 0,
+      remaining: row?.remaining ?? 0,
+      soldToday: row?.soldToday ?? 0,
+      soldThisWeek: row?.soldThisWeek ?? 0,
+      soldThisMonth: row?.soldThisMonth ?? 0,
+      soldAllTime: row?.soldAllTime ?? 0,
+      totalCostCents: row?.totalCostCents != null ? Math.round(Number(row.totalCostCents)) : null,
+      averageCostCents: row?.averageCostCents != null ? Math.round(Number(row.averageCostCents)) : null,
+    };
+  });
 }

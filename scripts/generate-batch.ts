@@ -4,11 +4,8 @@ import { eq } from "drizzle-orm";
 import QRCode from "qrcode";
 import { db } from "../src/lib/db/client";
 import { batches, plates } from "../src/lib/db/schema";
+import { generateUniqueSlugs } from "../src/lib/slug";
 
-// Excludes ambiguous characters (0/o, 1/l/i) so a human reading the printed
-// serial ID off a physical unit can't misread or mistype it.
-const SLUG_CHARSET = "abcdefghjkmnpqrstuvwxyz23456789";
-const SLUG_LENGTH = 6;
 const DEFAULT_COUNT = 30;
 
 const BASE_URL = process.env.QR_BASE_URL ?? "https://nfc-side-hustle.vercel.app";
@@ -28,24 +25,8 @@ interface PlateSpec {
   nfcPayload: string | null;
 }
 
-function randomSlug(): string {
-  let slug = "";
-  for (let i = 0; i < SLUG_LENGTH; i++) {
-    slug += SLUG_CHARSET[Math.floor(Math.random() * SLUG_CHARSET.length)];
-  }
-  return slug;
-}
-
-function uniqueSlugs(count: number): string[] {
-  const slugs = new Set<string>();
-  while (slugs.size < count) {
-    slugs.add(randomSlug());
-  }
-  return [...slugs];
-}
-
 function buildPlateSpecs(count: number, mix: Capability[]): PlateSpec[] {
-  const slugs = uniqueSlugs(count);
+  const slugs = generateUniqueSlugs(count);
   return slugs.map((slug, i) => {
     const capability = mix[i % mix.length];
     const urlPath = `/r/${slug}`;

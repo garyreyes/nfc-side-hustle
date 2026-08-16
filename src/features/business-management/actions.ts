@@ -11,6 +11,7 @@ import {
   createBusinessOwner,
   createPlate,
   isSlugTaken,
+  recordInventoryArrival,
   setPlateBranch,
   setPlateStatus,
   updatePlateCapability,
@@ -255,4 +256,44 @@ export async function setPlateStatusAction(
   }
 
   redirect("/admin/plates");
+}
+
+export async function recordInventoryArrivalAction(formData: FormData) {
+  await requirePlatformAdmin();
+
+  const batchName = formField(formData, "batchName");
+  const capability = formField(formData, "capability");
+  const quantityRaw = formField(formData, "quantity");
+  const unitCostRaw = formField(formData, "unitCost");
+
+  if (capability !== "qr" && capability !== "nfc" && capability !== "combo") {
+    redirect(`/admin/inventory?error=${encodeURIComponent("Invalid capability.")}`);
+  }
+
+  const quantity = Number(quantityRaw);
+  if (!Number.isInteger(quantity)) {
+    redirect(`/admin/inventory?error=${encodeURIComponent("Quantity must be a whole number.")}`);
+  }
+
+  // Entered in whole currency units (e.g. pesos) for a human filling out
+  // a form, converted to centavos (the schema's storage unit) here —
+  // Math.round guards against a value like "12.345" producing a
+  // fractional centavo from floating-point input.
+  const unitCostMajor = Number(unitCostRaw);
+  if (!Number.isFinite(unitCostMajor)) {
+    redirect(`/admin/inventory?error=${encodeURIComponent("Unit cost must be a number.")}`);
+  }
+  const unitCostCents = Math.round(unitCostMajor * 100);
+
+  try {
+    await recordInventoryArrival({ batchName, capability, quantity, unitCostCents });
+  } catch (err) {
+    if (err instanceof BusinessManagementError) {
+      redirect(`/admin/inventory?error=${encodeURIComponent(err.message)}`);
+    }
+    console.error("recordInventoryArrivalAction: unexpected error", err);
+    redirect(`/admin/inventory?error=${encodeURIComponent("Something went wrong.")}`);
+  }
+
+  redirect("/admin/inventory");
 }

@@ -43,6 +43,13 @@
       "when": 1786899079602,
       "tag": "0005_v6_plate_inventory",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1786921441489,
+      "tag": "0006_v7_inventory_cost_tracking",
+      "breakpoints": true
     }
   ]
 }

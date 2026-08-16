@@ -23,6 +23,7 @@ export default async function AdminDashboardPage() {
         { label: "Businesses", href: "/admin/businesses", active: false },
         { label: "Dashboard", href: "/admin/dashboard", active: true },
         { label: "Plates", href: "/admin/plates", active: false },
+        { label: "Inventory", href: "/admin/inventory", active: false },
       ]}
       email={session.email}
       roleLabel="Platform admin"
