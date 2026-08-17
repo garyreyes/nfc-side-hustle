@@ -318,3 +318,12 @@ Durable, project-specific decisions that should survive across sessions.
   without changing the password for everyone). Still no self-service
   signup and no "forgot password" flow, matching the V4 baseline;
   account recovery stays a direct DB script.
+- **`pdfkit` must stay in `next.config.ts`'s `serverExternalPackages`,
+  not get bundled.** It resolves its built-in standard fonts (Helvetica
+  etc.) from `.afm` files via a `__dirname`-relative path at runtime —
+  Turbopack/webpack bundling rewrites that path and breaks font loading
+  with an `ENOENT` for a path that never existed (hit this literally, on
+  the first real request, while building the 2026-08-17 inventory
+  exports). Any future library with the same "reads its own files
+  relative to `__dirname` at runtime" pattern will likely need the same
+  `serverExternalPackages` treatment, not a code-level fix.

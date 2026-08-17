@@ -2,6 +2,34 @@
 
 ## Unreleased
 
+### 2026-08-17 — Inventory exports: Excel workbook + PDF report
+`/admin/inventory` gained two download buttons. "Export to Excel"
+produces a 3-sheet `.xlsx` (Inventory Summary — the existing verified
+numbers, just formatted; Batches — new `listBatchSummaries()`, grouped
+by batch+capability so a capability-split batch reports correctly;
+Items Sold — new `listSoldPlates()`, one row per plate ever sold,
+suspended or not). "Download PDF report" produces a one-page summary
+(totals, per-capability table, most-sold-by-capability ranking) via
+`pdfkit`, chosen over a headless-browser renderer specifically to avoid
+Puppeteer/Chromium's bundle-size and cold-start cost on Vercel
+serverless.
+
+Hit and fixed a real bundler issue: pdfkit loads its built-in standard
+fonts from `.afm` files via a `__dirname`-relative path, which Turbopack
+rewrites, breaking font loading with an `ENOENT` for a path that never
+existed. Fixed via `serverExternalPackages: ["pdfkit"]` in
+`next.config.ts`, keeping it unbundled so Node's real module resolution
+applies.
+
+Classified correctness-adjacent (new aggregation queries, though the
+core money figures are the already-verified `getInventorySummary()`
+untouched) and verified against real production data: downloaded both
+files through the real gated routes with a known test batch in place,
+confirmed the XLSX's batch/sold-item rows match hand-calculated expected
+values exactly, and confirmed the PDF is a real, valid file (not just a
+200 status) — 10/10 checks passed. Verification script and all test
+data deleted afterward and confirmed absent.
+
 ### 2026-08-17 — Full production data wipe
 At the owner's explicit request, after confirming exact scope twice
 (what's in the DB, then a final go/no-go naming the specific

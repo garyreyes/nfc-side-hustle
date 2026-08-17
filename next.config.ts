@@ -25,6 +25,13 @@ const CSP = [
 ].join("; ");
 
 const nextConfig: NextConfig = {
+  // pdfkit resolves its bundled standard-font .afm files via a
+  // __dirname-relative path at runtime — bundling it (the Turbopack/
+  // webpack default) rewrites that path and breaks font loading with an
+  // ENOENT for a path that never existed. Keeping it external makes
+  // Node's real `require` resolve it directly instead, matching pdfkit's
+  // own documented deployment guidance for bundled environments.
+  serverExternalPackages: ["pdfkit"],
   async headers() {
     return [
       {
