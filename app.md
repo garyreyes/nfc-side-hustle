@@ -192,6 +192,10 @@ someone hammering it, unrelated to the login system entirely.
   add-business/inventory-arrival flows exist.
 - `scripts/generate-batch.ts` — an older, more elaborate batch generator
   (writes local QR images + a manifest/spec sheet in addition to
-  creating the DB rows) — a heavier alternative to just using
-  **Record inventory arrival** on `/admin/inventory` plus
-  `npm run qr:generate` per plate afterward.
+  creating the DB rows) — a heavier alternative to **Record inventory
+  arrival** on `/admin/inventory`. Both this and `npm run qr:generate`
+  assume you can print/stick a QR image onto the physical plate
+  yourself, which turned out not to match how the real acrylic
+  QR-capability plates actually get manufactured — see the "not solved
+  yet" note in `onboarding.md` before relying on either for a real QR
+  order.
