@@ -2,6 +2,26 @@
 
 ## Unreleased
 
+### 2026-08-18 — Fix QR codes missing the `?src=qr` channel marker; add onboarding.md, app.md, and a real README
+`scripts/generate-qr.ts` was encoding the plain `/r/<slug>` URL into
+every generated QR code, never the `?src=qr` marker the redirect route
+reads to attribute a scan to the QR channel (see `src/app/r/[slug]/
+route.ts`). Every real QR scan would have logged as "unknown" on the
+"By channel" breakdown forever, silently defeating that whole feature.
+Fixed — the script now encodes `?src=qr` while still verifying against
+the plain URL (the redirect behavior doesn't depend on the marker).
+Verified against a real temporary plate: ran the script for real,
+confirmed the printed "Generated QR for..." line includes `?src=qr`.
+
+Added two operating docs the project never had: `onboarding.md` (the
+field playbook — creating a business, assigning a plate, and the full
+physical QR-printing / NFC-writing steps, written for zero prior NFC
+experience) and `app.md` (a feature-by-feature reference of every real
+screen in the current app, for re-orienting later). Also wrote a real
+`README.md` — previously just a bare title — opening with why this
+project exists (practicing door-to-door sales, helping local businesses
+actually use Google reviews) before the technical orientation.
+
 ### 2026-08-17 — Inventory exports: Excel workbook + PDF report
 `/admin/inventory` gained two download buttons. "Export to Excel"
 produces a 3-sheet `.xlsx` (Inventory Summary — the existing verified
