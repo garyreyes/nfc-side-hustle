@@ -737,6 +737,43 @@ src/
       export.pdf/route.ts                     # NEW
 ```
 
+## Pre-printed QR provisioning
+
+Post-V7 addition, closing a real gap found while writing `onboarding.md`
+(2026-08-18): QR-capability acrylic plates get their QR code
+printed/etched by the Alibaba manufacturer at the factory, before the
+unit ever reaches us — unlike NFC, where the chip is rewritable after
+manufacture and it never mattered what slug ended up on a given unit.
+For QR, the slug has to be decided and handed to the supplier *before*
+they print, which inverts the normal "arrive first, slug later" order.
+
+- `recordInventoryArrival()` gained an optional `slugs?: string[]`
+  parameter — when provided, those exact slugs are used instead of
+  `generateUniqueSlugs()`'s random ones, with validation that the count
+  matches `quantity`, every slug is valid, and none are duplicated.
+  Omitting it (the NFC/default path) behaves exactly as before —
+  nothing about the existing random-slug flow changed.
+- New `scripts/generate-qr-order.ts` (`npm run qr:generate-order --
+  <count>`), run *before* placing an order — generates the slug list
+  with no database write at all (nothing exists yet to write), and
+  saves two files: the full URLs to hand the supplier for printing, and
+  the bare slugs to paste into `/admin/inventory`'s new **Pre-made
+  slugs** field once the batch physically arrives and gets recorded for
+  real.
+- Verified against real production data: confirmed pre-made slugs are
+  used exactly as given (not silently regenerated), a mismatched
+  quantity/slug count is rejected, invalid slug format is rejected,
+  duplicate slugs are rejected, and the ordinary random-slug path (no
+  `slugs` provided) still works unchanged — 5/5 checks passed. Also
+  validated the full physical-to-digital sequence end-to-end with a mock
+  QR image generated *before* any database row existed, confirming the
+  same image correctly resolved to the right business once the plate
+  was later recorded and sold.
+- **Still unconfirmed**: whether the actual Alibaba supplier will agree
+  to print per-unit custom QR content rather than their own random one
+  — see `PROJECT_FACTS.md`. Don't place a QR/combo order until that's
+  settled; this only removes the *software* gap.
+
 ## Roadmap context
 
 This is Version 7 of 7 from the project roadmap:

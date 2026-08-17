@@ -131,7 +131,7 @@ export default async function AdminInventoryPage({
                 name="quantity"
                 min="1"
                 step="1"
-                required
+                placeholder="Ignored if slugs are pasted below"
               />
             </div>
             <div className={formStyles.field}>
@@ -148,6 +148,24 @@ export default async function AdminInventoryPage({
                 required
               />
             </div>
+          </div>
+          <div className={formStyles.field}>
+            <label className={formStyles.fieldLabel} htmlFor="slugs">
+              Pre-made slugs (optional, one per line)
+            </label>
+            <textarea
+              className={formStyles.input}
+              id="slugs"
+              name="slugs"
+              rows={3}
+              placeholder="Leave blank for ordinary arrivals (e.g. NFC) — slugs generate automatically"
+            />
+            <p className={formStyles.helperText}>
+              Only for stock whose QR code was already printed by the supplier before it arrived —
+              paste the same slugs from <code>npm run qr:generate-order</code>&rsquo;s output so the
+              plates created here match what&rsquo;s physically on the units. Quantity is derived
+              from how many lines you paste, not typed separately.
+            </p>
           </div>
           <p className={formStyles.helperText}>
             Creates a new batch and that many real unassigned plates, ready to write and assign as

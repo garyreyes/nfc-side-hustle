@@ -13,19 +13,61 @@ business owner. They never see any of this.
 
 ## Before you're in the field: get stock into the system
 
-You only need to do this once per shipment, not per sale.
+You only need to do this once per shipment, not per sale. **NFC and QR
+work differently here** — read the one that matches what you actually
+ordered.
+
+### NFC stock (this is what the current 20-unit order is)
 
 1. Log in at `nfc-side-hustle.vercel.app` and go to **Inventory**.
 2. Fill in **Record inventory arrival**: a name for this batch (e.g.
-   `02`), the capability (QR only / NFC only / Combo — whatever the
-   physical units actually are), how many units, and what you paid per
-   unit.
+   `02`), capability **NFC only**, how many units, and what you paid
+   per unit. Leave "Pre-made slugs" blank.
 3. Click **Record arrival**. This creates that many blank, unassigned
-   plates in the system — nothing is written to a physical card yet,
-   this just tells the system "we have N of these to sell."
+   plates in the system — nothing is written to a physical chip yet,
+   this just tells the system "we have N of these to sell." The system
+   picks a random code for each one; it doesn't matter what it is,
+   since you write the real address onto the chip yourself at sale
+   time (see the NFC section below).
 
-You can see them waiting on the **Plates** page, grouped together as
-"N unassigned plates" under that batch.
+### QR (or combo) stock — do this BEFORE placing the order
+
+QR plates are different: the manufacturer prints/etches the QR code
+into the acrylic at the factory, so the code has to be decided and
+handed to the supplier *before* they print anything — you can't
+generate it afterward like you can with NFC.
+
+1. **Before ordering**, from your computer, run:
+   ```
+   npm run qr:generate-order -- 50
+   ```
+   (replace `50` with however many units you're ordering)
+2. This creates a folder under `qr-codes/orders/` with two files:
+   - `supplier-urls.txt` — the actual URLs to send the supplier so they
+     print/etch the right thing onto each unit
+   - `slugs.txt` — the same codes, without the full URL — **keep this
+     one**, you'll need it in step 5
+3. Send `supplier-urls.txt`'s contents to the manufacturer as the list
+   of what to print, one per unit.
+4. Wait for the order to arrive.
+5. Once it's physically in hand: log in, go to **Inventory**, fill in
+   **Record inventory arrival** as usual (batch name, capability
+   QR/combo, unit cost) — but this time, open `slugs.txt` from step 2
+   and paste its contents into **Pre-made slugs**. Quantity fills in
+   automatically from however many lines you pasted; you don't need to
+   type it separately.
+6. Click **Record arrival**. The plates created now match exactly
+   what's already printed on the physical units — nothing more to
+   write, they're ready to hand out as-is.
+
+If you ever record an arrival with the wrong slug list by mistake, it's
+not catastrophic — those plate rows just won't match anything physical
+and can be ignored or deleted; nothing was actually printed based on
+what you entered here, since the printing already happened before this
+step.
+
+You can see stock waiting on the **Plates** page either way, grouped
+together as "N unassigned plates" under that batch.
 
 ---
 
@@ -102,43 +144,37 @@ whether you're dealing with a QR code or an NFC tag.
 
 ---
 
-## QR-capability plates — not solved yet, don't order QR stock until this is sorted
+## QR-capability plates — how the printing actually works
 
-Everything below this note was written assuming you'd generate a QR
-image yourself (`npm run qr:generate -- <slug>`) and print/stick it
-onto the plate. **That assumption turned out to be wrong for the real
-physical product**: the acrylic QR/NFC/combo plates come from the
-Alibaba manufacturer with the QR code already printed/etched in at the
-factory — a paper sticker on top would ruin the acrylic finish, and the
-factory-printed code is random, not something you choose or can
-regenerate after the fact.
+This depends on one thing being true: **the supplier agrees to print a
+QR code you provide, per unit, instead of their own random one.** A lot
+of suppliers for this exact product will do this if you send them the
+URL list before they print — worth confirming with yours before
+ordering. If they can't or won't do this, the "Before you're in the
+field" QR steps above don't apply and this needs a different plan (ask
+what their own random QR actually does when scanned, and whether
+there's any way to configure its destination).
 
-As of now, **you haven't ordered any QR-capability stock** — only the
-20-unit NFC batch — so this isn't blocking anything today. NFC plates
-don't have this problem: the chip is rewritable after manufacture no
-matter what's on it out of the box, so the NFC section below is correct
-and usable as-is.
+Assuming they can: the whole thing is already built and tested. The
+short version, already covered step by step above:
+1. `npm run qr:generate-order -- <count>` **before** ordering — this
+   decides the codes and gives you the URL list to hand the supplier.
+2. Send them `supplier-urls.txt`. They print/etch it into the acrylic.
+3. When it arrives, record the arrival on `/admin/inventory` using
+   `slugs.txt`'s contents in the **Pre-made slugs** field — this
+   creates plate rows matching exactly what's already printed, nothing
+   left to write by hand.
+4. From there, selling a QR plate to a business works exactly like NFC:
+   find its group on **Plates**, assign it, done. The only difference
+   from NFC was in getting the physical unit correctly provisioned in
+   the first place — there's no separate "print a QR" step at sale
+   time the way there is for QR generated on your own computer.
 
-Before ordering any QR or combo stock, figure out one of these with the
-supplier:
-- Can they print a QR code **you provide** per unit (i.e., encoding
-  your own `nfc-side-hustle.vercel.app/r/<slug>?src=qr` URLs) instead
-  of their own random ones? Common for this kind of product if you send
-  the URL list before they print — this would make QR plates work
-  exactly like NFC ones (assign in the system first to get the slug,
-  then hand the supplier the URL list).
-- If not, what does their random QR actually do when scanned — does it
-  open a URL on a domain they control, with some way for you to
-  configure the destination per code? Or is it just a static ID with no
-  functional redirect until they wire something up?
-
-Once that's answered, this section gets rewritten to match reality —
-don't trust the leftover instructions below until then.
-
-The `npm run qr:generate -- <slug>` script still exists and still
-works correctly (it encodes the right `?src=qr`-tagged URL) — it's just
-not clear yet whether it's usable against your actual physical product,
-since it assumes you can put its output onto the plate yourself.
+The old, no-longer-recommended path (`npm run qr:generate -- <slug>` +
+printing/sticking a paper QR onto a plate yourself) still exists and
+still works correctly if you ever need a one-off, DIY QR for something
+that isn't a supplier-manufactured acrylic plate — just not for the
+real product line.
 
 ---
 

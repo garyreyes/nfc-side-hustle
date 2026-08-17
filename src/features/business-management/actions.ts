@@ -316,16 +316,30 @@ export async function recordInventoryArrivalAction(formData: FormData) {
 
   const batchName = formField(formData, "batchName");
   const capability = formField(formData, "capability");
-  const quantityRaw = formField(formData, "quantity");
   const unitCostRaw = formField(formData, "unitCost");
 
   if (capability !== "qr" && capability !== "nfc" && capability !== "combo") {
     redirect(`/admin/inventory?error=${encodeURIComponent("Invalid capability.")}`);
   }
 
-  const quantity = Number(quantityRaw);
-  if (!Number.isInteger(quantity)) {
-    redirect(`/admin/inventory?error=${encodeURIComponent("Quantity must be a whole number.")}`);
+  // Pre-made slugs (one per line) take priority over a typed quantity —
+  // for stock whose QR was already fixed at manufacture time, quantity
+  // is derived from how many slugs were pasted in, not typed separately,
+  // so there's no redundant count for a human to get wrong. Leave this
+  // blank for ordinary (e.g. NFC) arrivals and the quantity field is used
+  // as before.
+  const slugsRaw = formField(formData, "slugs");
+  const slugs = slugsRaw
+    ? slugsRaw
+        .split(/[\n,]/)
+        .map((s) => s.trim())
+        .filter((s) => s.length > 0)
+    : [];
+
+  const quantityRaw = formField(formData, "quantity");
+  const quantity = slugs.length > 0 ? slugs.length : Number(quantityRaw);
+  if (!Number.isInteger(quantity) || quantity <= 0) {
+    redirect(`/admin/inventory?error=${encodeURIComponent("Quantity must be a positive whole number.")}`);
   }
 
   // Entered in whole currency units (e.g. pesos) for a human filling out
@@ -339,7 +353,13 @@ export async function recordInventoryArrivalAction(formData: FormData) {
   const unitCostCents = Math.round(unitCostMajor * 100);
 
   try {
-    await recordInventoryArrival({ batchName, capability, quantity, unitCostCents });
+    await recordInventoryArrival({
+      batchName,
+      capability,
+      quantity,
+      unitCostCents,
+      slugs: slugs.length > 0 ? slugs : undefined,
+    });
   } catch (err) {
     if (err instanceof BusinessManagementError) {
       redirect(`/admin/inventory?error=${encodeURIComponent(err.message)}`);

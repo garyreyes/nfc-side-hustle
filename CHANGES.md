@@ -2,6 +2,35 @@
 
 ## Unreleased
 
+### 2026-08-18 — Pre-printed QR support: order slugs before manufacturing, not after
+Closes the QR-provisioning gap flagged in the previous entry.
+`recordInventoryArrival()` now accepts an optional pre-made `slugs`
+list — when given, those exact slugs are used instead of generating
+random ones, so a batch whose QR codes were already printed by the
+supplier before arrival gets recorded with plates that match exactly
+what's physically on the units. `/admin/inventory`'s arrival form
+gained a **Pre-made slugs** field (one per line); quantity derives from
+the list automatically rather than being typed and re-counted by hand.
+
+New `npm run qr:generate-order -- <count>`, run *before* placing an
+order — generates the slug list with zero database writes (nothing
+exists yet), saving both the full URLs to hand the supplier and the
+bare slugs to paste back in once the batch arrives.
+
+Verified against real production data: pre-made slugs are used exactly
+as given, mismatched quantity/slug-count is rejected, invalid slug
+format is rejected, duplicates are rejected, and the ordinary
+random-slug (NFC) path is unchanged — 5/5 checks passed. Also validated
+the full sequence end-to-end with a mock QR image generated *before*
+any database row existed, confirming that same image correctly
+resolved to the right business once the plate was later recorded and
+sold.
+
+Still unconfirmed: whether the actual Alibaba supplier will print
+custom per-unit QR content — this removes the software gap, not the
+open business question. Don't place a QR/combo order until that's
+settled with the supplier (see `PROJECT_FACTS.md`).
+
 ### 2026-08-18 — Fix QR codes missing the `?src=qr` channel marker; add onboarding.md, app.md, and a real README
 `scripts/generate-qr.ts` was encoding the plain `/r/<slug>` URL into
 every generated QR code, never the `?src=qr` marker the redirect route
