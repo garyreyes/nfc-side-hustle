@@ -43,11 +43,10 @@ session — a business owner hitting any of them gets redirected back to
 ### `/admin/businesses` — client roster
 
 - Two stat cards: total businesses, total scans across all of them.
-- **Add a business** form: name, slug, Google review URL, optional
-  owner email/password. Submitting this *also* immediately creates one
-  plate for that business (using the slug you typed) — a legacy
-  behavior from before batch/inventory tracking existed. See
-  `onboarding.md` for how this affects the real sales workflow.
+- **Add a business** form: name, Google review URL, optional owner
+  email/password. Creates the business only — no plate. (Used to also
+  auto-create one untracked plate via a typed slug; removed once that
+  became pure clutter at real scale — see `PROJECT_FACTS.md`.)
 - Below that, every business as a collapsible card (closed by default,
   click to expand) — collapsed to stay usable once you have more than a
   handful of clients. A search box (`?q=`) filters by name and
@@ -85,8 +84,12 @@ business" framing). Shows:
 - **Unassigned plates are grouped**, not listed individually — e.g. "94
   unassigned plates" under one batch+capability, with:
   - An **Assign one to business** form (business + sale price, both
-    required) — picks one plate out of the group automatically; you
-    don't choose which specific physical unit.
+    required; slug optional) — leave the slug blank and it picks any
+    plate out of the group automatically (fine for NFC, where it never
+    matters which physical chip you grab). Fill the slug in to assign
+    that exact unit instead — needed for pre-printed QR, where the code
+    is already fixed on the physical card in hand. Fails cleanly if
+    that slug is already taken or isn't in this group.
   - A **Fix capability for all N** form — bulk-corrects the whole
     group if it was recorded wrong (e.g. marked QR when the physical
     units are NFC).

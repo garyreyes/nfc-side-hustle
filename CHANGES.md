@@ -2,6 +2,33 @@
 
 ## Unreleased
 
+### 2026-08-18 — Choose a specific slug when assigning; remove the auto-plate from "Add a business"
+Two fixes found while field-testing the pre-printed-QR flow for real.
+
+**Assigning a specific slug**: `/admin/plates`'s "Assign one to
+business" gained an optional slug field. Previously it always picked an
+arbitrary plate out of the group — fine for NFC, where the physical
+chip is interchangeable until written to, but wrong for pre-printed QR,
+where the code is already fixed on the unit in hand. Leaving the field
+blank keeps the old random-pick behavior exactly as before; filling it
+in assigns that exact plate and fails cleanly (not a silent fallback to
+a different slug) if it's already taken or not in this group.
+
+**No more auto-plate on "Add a business"**: that form used to
+immediately create one untracked, ad-hoc plate using a typed slug — a
+leftover from before batch/inventory tracking existed. Real usage
+showed this is just clutter once you have more than a few businesses
+(one orphan "No batch" plate per business, forever). Removed; a
+business now starts with zero plates, matching how every real plate
+actually gets created today (Record Inventory Arrival + Assign). The
+standalone "Add plate" form on each business's own card is unaffected.
+
+Verified against real production data (5/5 checks): assigning a
+specific slug picks exactly that plate; re-assigning an already-taken
+slug is rejected; assigning a nonexistent slug is rejected; omitting
+the slug still does an ordinary random pick; `createBusinessAction`
+now creates zero plates for a new business.
+
 ### 2026-08-18 — Pre-printed QR support: order slugs before manufacturing, not after
 Closes the QR-provisioning gap flagged in the previous entry.
 `recordInventoryArrival()` now accepts an optional pre-made `slugs`

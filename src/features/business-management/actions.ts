@@ -2,7 +2,6 @@
 
 import { redirect } from "next/navigation";
 import { requirePlatformAdmin } from "@/lib/auth/dal";
-import { isValidSlug } from "@/lib/slug";
 import {
   assignNextUnassignedPlate,
   BusinessManagementError,
@@ -10,7 +9,6 @@ import {
   createBusiness,
   createBusinessOwner,
   createPlate,
-  isSlugTaken,
   recordInventoryArrival,
   setPlateBranch,
   setPlateStatus,
@@ -21,17 +19,17 @@ import {
 // This action is gated by real per-user sessions (V4): src/proxy.ts only
 // does an optimistic cookie-presence redirect for UX, it is NOT the
 // security boundary — that's requirePlatformAdmin() below and inside
-// each of createBusiness()/createPlate()/isSlugTaken() themselves
-// (defense in depth). The explicit call here, before the try block, is
-// deliberate and required, not redundant with those inner calls: if it
-// were only checked inside createBusiness()/createPlate() (both called
-// from within the try below), requirePlatformAdmin()'s redirect() would
-// throw *inside* that try and get caught by the generic catch as if it
-// were an ordinary error — silently turning "please log back in" into a
-// misleading "Something went wrong" on the wrong page. Any future
-// Server Action that calls a requirePlatformAdmin()-guarded api.ts
-// function from inside a try/catch must check auth explicitly first,
-// outside that try, for the same reason.
+// each of createBusiness()/createBusinessOwner() themselves (defense in
+// depth). The explicit call here, before the try block, is deliberate
+// and required, not redundant with those inner calls: if it were only
+// checked inside createBusiness() (called from within the try below),
+// requirePlatformAdmin()'s redirect() would throw *inside* that try and
+// get caught by the generic catch as if it were an ordinary error —
+// silently turning "please log back in" into a misleading "Something
+// went wrong" on the wrong page. Any future Server Action that calls a
+// requirePlatformAdmin()-guarded api.ts function from inside a try/catch
+// must check auth explicitly first, outside that try, for the same
+// reason.
 
 function formField(formData: FormData, key: string): string {
   const value = formData.get(key);
@@ -52,24 +50,8 @@ export async function createBusinessAction(formData: FormData) {
 
   const name = formField(formData, "name");
   const googleReviewUrl = formField(formData, "googleReviewUrl");
-  const slug = formField(formData, "slug");
   const ownerEmail = formField(formData, "ownerEmail");
   const ownerPassword = passwordField(formData, "ownerPassword");
-
-  // Validate and check slug availability before creating the business
-  // row. Without this, an ordinary typo (duplicate or malformed slug) —
-  // ordinary admin usage, not a rare failure — would leave a permanent
-  // orphan business with no plate, since V2 has no delete/update yet.
-  if (!isValidSlug(slug)) {
-    redirect(
-      `/admin/businesses?error=${encodeURIComponent(
-        "Slug must contain only lowercase letters, numbers, and hyphens."
-      )}`
-    );
-  }
-  if (await isSlugTaken(slug)) {
-    redirect(`/admin/businesses?error=${encodeURIComponent(`Slug "${slug}" is already in use.`)}`);
-  }
 
   // Owner fields are optional, but only together — half-set owner info
   // would either silently create a password-less account or silently
@@ -82,9 +64,14 @@ export async function createBusinessAction(formData: FormData) {
     );
   }
 
+  // No plate created here (unlike the original V1/V2 behavior) — real
+  // plates now always come from Record Inventory Arrival + Assign
+  // (/admin/inventory, /admin/plates), so a business starts with zero
+  // plates rather than one automatic, untracked, ad-hoc one. Use the
+  // "Add plate" form on this business's own card afterward for the rare
+  // case a genuinely untracked one-off plate is still wanted.
   try {
     const business = await createBusiness({ name, googleReviewUrl });
-    await createPlate({ businessId: business.id, slug });
     if (ownerEmail && ownerPassword) {
       await createBusinessOwner({ businessId: business.id, email: ownerEmail, password: ownerPassword });
     }
@@ -148,11 +135,13 @@ export async function createBranchAction(businessId: string, formData: FormData)
 }
 
 // businessId is bound via .bind() from the page, same reasoning as
-// addBusinessOwnerAction above. Unlike createBusinessAction, no
-// isSlugTaken() pre-check is needed here — a duplicate/malformed slug
-// here doesn't risk orphaning anything (this only ever inserts a single
-// plate row, never a business), so createPlate()'s own validation and
-// unique-constraint handling is sufficient.
+// addBusinessOwnerAction above. This is the standalone, still-supported
+// path for a genuinely untracked, ad-hoc plate not going through
+// batch/inventory tracking — createBusinessAction no longer creates one
+// automatically. No isSlugTaken() pre-check needed here — a duplicate/
+// malformed slug doesn't risk orphaning anything (this only ever inserts
+// a single plate row, never a business), so createPlate()'s own
+// validation and unique-constraint handling is sufficient.
 export async function createPlateAction(businessId: string, formData: FormData) {
   await requirePlatformAdmin();
 
@@ -204,8 +193,15 @@ export async function assignNextUnassignedPlateAction(
   }
   const sellPriceCents = Math.round(sellPriceMajor * 100);
 
+  // Optional — picking a specific physical unit out of the group
+  // instead of letting the system grab an arbitrary one. Needed for
+  // pre-printed QR stock, where the slug is already fixed on the unit
+  // in hand; irrelevant for NFC, where any unassigned chip works the
+  // same since the address gets written afterward.
+  const slug = formField(formData, "slug") || undefined;
+
   try {
-    await assignNextUnassignedPlate({ batchId, capability, businessId, sellPriceCents });
+    await assignNextUnassignedPlate({ batchId, capability, businessId, sellPriceCents, slug });
   } catch (err) {
     if (err instanceof BusinessManagementError) {
       redirect(`/admin/plates?error=${encodeURIComponent(err.message)}`);

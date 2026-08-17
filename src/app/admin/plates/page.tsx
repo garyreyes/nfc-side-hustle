@@ -181,6 +181,15 @@ export default async function AdminPlatesPage({
                     </select>
                     <input
                       className={formStyles.input}
+                      type="text"
+                      name="slug"
+                      placeholder="Specific slug (optional)"
+                      aria-label="Assign this specific slug instead of a random one"
+                      pattern="[a-z0-9-]+"
+                      style={{ width: "11rem" }}
+                    />
+                    <input
+                      className={formStyles.input}
                       type="number"
                       name="sellPrice"
                       min="0"
@@ -197,6 +206,10 @@ export default async function AdminPlatesPage({
                       Assign
                     </SubmitButton>
                   </form>
+                  <span className={styles.plateMeta}>
+                    Leave the slug blank to pick any unit from this group — only fill it in if you need
+                    a specific one (e.g. a pre-printed QR code already in hand).
+                  </span>
                 </div>
 
                 <div className={styles.actionGroup}>

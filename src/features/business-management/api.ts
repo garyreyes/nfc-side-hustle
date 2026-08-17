@@ -385,6 +385,13 @@ export async function assignNextUnassignedPlate(input: {
   capability: "qr" | "nfc" | "combo";
   businessId: string;
   sellPriceCents: number;
+  // Optional — picks this exact plate instead of an arbitrary one from
+  // the group. Needed for pre-printed QR stock: the physical unit in
+  // hand already has a specific slug printed on it, so "any one from
+  // the group" isn't good enough once the units stopped being
+  // interchangeable (unlike NFC, where it never matters which physical
+  // chip gets grabbed, since the address gets written afterward).
+  slug?: string;
 }) {
   await requirePlatformAdmin();
 
@@ -394,13 +401,20 @@ export async function assignNextUnassignedPlate(input: {
   if (!Number.isInteger(input.sellPriceCents) || input.sellPriceCents < 0) {
     throw new BusinessManagementError("Sale price must be a non-negative amount.");
   }
+  if (input.slug !== undefined && !isValidSlug(input.slug)) {
+    throw new BusinessManagementError("That slug isn't valid.");
+  }
 
   const batchMatch = input.batchId === null ? isNull(plates.batchId) : eq(plates.batchId, input.batchId);
+  const candidateConditions = [eq(plates.status, "unassigned"), eq(plates.capability, input.capability), batchMatch];
+  if (input.slug) {
+    candidateConditions.push(eq(plates.slug, input.slug));
+  }
 
   const candidateId = db
     .select({ id: plates.id })
     .from(plates)
-    .where(and(eq(plates.status, "unassigned"), eq(plates.capability, input.capability), batchMatch))
+    .where(and(...candidateConditions))
     .limit(1);
 
   try {
@@ -416,7 +430,11 @@ export async function assignNextUnassignedPlate(input: {
       .returning({ id: plates.id, slug: plates.slug });
 
     if (!updated) {
-      throw new BusinessManagementError("No unassigned plates left in this group — reload to see current stock.");
+      throw new BusinessManagementError(
+        input.slug
+          ? `"${input.slug}" isn't an unassigned plate in this group — check the slug or reload to see current stock.`
+          : "No unassigned plates left in this group — reload to see current stock."
+      );
     }
     return updated;
   } catch (err) {

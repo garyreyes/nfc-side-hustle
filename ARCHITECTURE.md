@@ -774,6 +774,27 @@ they print, which inverts the normal "arrive first, slug later" order.
   — see `PROJECT_FACTS.md`. Don't place a QR/combo order until that's
   settled; this only removes the *software* gap.
 
+**Follow-up found while field-testing this for real**: `assignNextUnassignedPlate()`
+gained an optional `slug` parameter — picking a specific plate out of a
+group instead of an arbitrary one. Once QR stock has real, physically-
+fixed codes, "any unassigned plate in this group" isn't good enough:
+the admin needs to match the plate they assign to the exact physical
+unit they're handing over. The `id IN (subquery)` / outer
+`status = 'unassigned'` re-check pattern (see the function's own
+comment) still applies unchanged — a requested slug that's already
+taken by a concurrent assignment fails the same clean way a stockout
+already did, rather than silently double-assigning. Irrelevant for NFC
+(any unassigned chip still works the same, since the address gets
+written after assignment).
+
+Also removed `createBusinessAction`'s automatic ad-hoc plate creation
+(the "Add a business" form's old `slug` field) — real usage showed it
+was pure clutter (one untracked, orphaned plate per business, forever)
+once every real plate came from the batch/inventory flow instead. The
+standalone per-business "Add plate" form (`createPlateAction`) is
+unaffected and remains the intentional path for a genuinely untracked
+one-off plate.
+
 ## Roadmap context
 
 This is Version 7 of 7 from the project roadmap:

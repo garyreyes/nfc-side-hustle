@@ -81,15 +81,6 @@ do, in order.
 **New business** → go to **Businesses** → **Add a business**. Fill in:
 - **Business name** — what shows up everywhere in the admin (e.g. "Golden
   Wok Restaurant")
-- **Slug** — lowercase letters/numbers/hyphens only (e.g.
-  `golden-wok`). One quirk worth knowing: filling in this form
-  immediately creates one extra plate for this business too, using
-  whatever you type here — a leftover from before batch/inventory
-  tracking existed, with no cost or sale price recorded against it.
-  You don't need to do anything with that plate and can ignore it —
-  the plate you actually hand to the customer comes from your tracked
-  batch stock in step 2 below, not this one. So just type anything
-  short and valid here; it doesn't need to mean anything.
 - **Google review URL** — the link that opens their Google review box
   directly. The easiest way to get this: search the business on Google
   Maps, click "Write a review," and copy the URL from that page.
@@ -97,7 +88,9 @@ do, in order.
   this in if you're also setting them up with dashboard login access
   right now. Skip it if you're not ready to do that yet.
 
-Click **Add business**.
+Click **Add business**. This creates the business only — no plate yet,
+nothing to ignore or clean up. The actual plate you hand to the
+customer comes from your tracked batch stock in step 2 below.
 
 **Existing business** (e.g. selling them a second plate for another
 location) → you don't need to do anything here, just find them on the
@@ -111,14 +104,24 @@ the right batch).
 
 Fill in the **Assign one to business** row:
 - **Choose a business** — pick the one from step 1
+- **Specific slug (optional)** — for NFC, leave this blank; it doesn't
+  matter which physical chip you grab, since you write the address onto
+  it afterward. **For pre-printed QR, fill this in** with the exact
+  code already printed on the unit you're physically handing over —
+  otherwise the system might pick a *different* slug from the group
+  than the one on the card in your hand, and the QR you hand over won't
+  actually work. Read it off `slugs.txt`/`supplier-urls.txt`, or scan
+  the physical code with your phone to see it.
 - **Sale price (₱)** — what they actually paid. This is required now —
   you can't submit without it. It's what makes the revenue/profit
   numbers on the Inventory page mean anything, so don't skip it or
   round it off.
 
-Click **Assign**. The system picks one plate out of that group for you
-— you don't choose which physical unit, since they're all identical
-until you write something to them (next step).
+Click **Assign**. If you left the slug blank, the system picks any
+plate out of that group for you. If you filled it in, it assigns that
+exact one — and fails cleanly (with a clear error) if that slug is
+already taken or doesn't exist in this group, rather than silently
+assigning a different one.
 
 ### 3. Find the plate's web address
 
