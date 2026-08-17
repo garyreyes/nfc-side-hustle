@@ -5,7 +5,6 @@ import { requirePlatformAdmin } from "@/lib/auth/dal";
 import { isValidSlug } from "@/lib/slug";
 import {
   assignNextUnassignedPlate,
-  assignPlateToBusiness,
   BusinessManagementError,
   createBranch,
   createBusiness,
@@ -175,41 +174,6 @@ export async function createPlateAction(businessId: string, formData: FormData) 
 
 // plateId is bound via .bind() from /admin/plates, same reasoning as
 // addBusinessOwnerAction above.
-export async function assignPlateAction(plateId: string, formData: FormData) {
-  await requirePlatformAdmin();
-
-  const businessId = formField(formData, "businessId");
-  if (!businessId) {
-    redirect(`/admin/plates?error=${encodeURIComponent("Choose a business to assign this plate to.")}`);
-  }
-
-  // Optional, same reasoning as recordInventoryArrivalAction's unitCost:
-  // entered in whole pesos for a human, converted to centavos here. Left
-  // blank, this stays undefined so the plate's sellPriceCents stays null
-  // (an untracked sale) rather than becoming a false ₱0 sale.
-  const sellPriceRaw = formField(formData, "sellPrice");
-  let sellPriceCents: number | undefined;
-  if (sellPriceRaw) {
-    const sellPriceMajor = Number(sellPriceRaw);
-    if (!Number.isFinite(sellPriceMajor) || sellPriceMajor < 0) {
-      redirect(`/admin/plates?error=${encodeURIComponent("Sale price must be a non-negative number.")}`);
-    }
-    sellPriceCents = Math.round(sellPriceMajor * 100);
-  }
-
-  try {
-    await assignPlateToBusiness({ plateId, businessId, sellPriceCents });
-  } catch (err) {
-    if (err instanceof BusinessManagementError) {
-      redirect(`/admin/plates?error=${encodeURIComponent(err.message)}`);
-    }
-    console.error("assignPlateAction: unexpected error", err);
-    redirect(`/admin/plates?error=${encodeURIComponent("Something went wrong.")}`);
-  }
-
-  redirect("/admin/plates");
-}
-
 // batchId/capability are bound via .bind() from the grouped "Assign one"
 // summary row (see admin/plates/page.tsx) — the caller picks a GROUP,
 // not a specific plate, and the server chooses which interchangeable
@@ -226,15 +190,19 @@ export async function assignNextUnassignedPlateAction(
     redirect(`/admin/plates?error=${encodeURIComponent("Choose a business to assign this plate to.")}`);
   }
 
+  // Required (unlike unitCostCents at arrival time) — a sale with no
+  // recorded price is exactly the gap that made /admin/inventory's
+  // revenue figures unreliable, so the assign form is the one place this
+  // now gets enforced rather than left to be filled in later.
   const sellPriceRaw = formField(formData, "sellPrice");
-  let sellPriceCents: number | undefined;
-  if (sellPriceRaw) {
-    const sellPriceMajor = Number(sellPriceRaw);
-    if (!Number.isFinite(sellPriceMajor) || sellPriceMajor < 0) {
-      redirect(`/admin/plates?error=${encodeURIComponent("Sale price must be a non-negative number.")}`);
-    }
-    sellPriceCents = Math.round(sellPriceMajor * 100);
+  if (!sellPriceRaw) {
+    redirect(`/admin/plates?error=${encodeURIComponent("Sale price is required to assign a plate.")}`);
   }
+  const sellPriceMajor = Number(sellPriceRaw);
+  if (!Number.isFinite(sellPriceMajor) || sellPriceMajor < 0) {
+    redirect(`/admin/plates?error=${encodeURIComponent("Sale price must be a non-negative number.")}`);
+  }
+  const sellPriceCents = Math.round(sellPriceMajor * 100);
 
   try {
     await assignNextUnassignedPlate({ batchId, capability, businessId, sellPriceCents });

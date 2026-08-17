@@ -186,6 +186,7 @@ export default async function AdminPlatesPage({
                       step="0.01"
                       placeholder="Sale price (₱)"
                       aria-label="Sale price in pesos"
+                      required
                       style={{ width: "9rem" }}
                     />
                     <SubmitButton
