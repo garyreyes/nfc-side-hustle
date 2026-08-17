@@ -91,7 +91,7 @@ export const plates = pgTable("plates", {
   // Losing the batch association (batch record deleted) must never break
   // a live plate — set null, not cascade, same principle as branchId.
   batchId: uuid("batch_id").references(() => batches.id, { onDelete: "set null" }),
-  // Set by assignPlateToBusiness() (V6d) the moment status flips
+  // Set by assignNextUnassignedPlate() the moment status flips
   // unassigned -> active. Nothing before V7 recorded *when* a plate was
   // sold, only its current status — this is what makes time-bucketed
   // sales reporting (today/week/month/all-time) possible at all.
@@ -103,11 +103,12 @@ export const plates = pgTable("plates", {
   // existed, stay null (an untracked-cost plate, not a zero-cost one).
   unitCostCents: integer("unit_cost_cents"),
   // V7b: what the plate was actually sold for, entered alongside
-  // assignPlateToBusiness() (the same "sold" event unitCostCents/
-  // assignedAt already key off). Optional like unitCostCents — an
-  // assignment made without a price stays null rather than becoming a
-  // false "sold for ₱0", so revenue sums (which ignore SQL NULLs) don't
-  // silently undercount real sales as ₱0 ones.
+  // assignNextUnassignedPlate() (the same "sold" event unitCostCents/
+  // assignedAt already key off). Required at the application layer (the
+  // assign form won't submit without it) so revenue can't silently
+  // undercount a real sale as untracked — still a nullable column
+  // because plates created/sold before this requirement existed have no
+  // price on file.
   sellPriceCents: integer("sell_price_cents"),
 });
 

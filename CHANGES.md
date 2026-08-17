@@ -2,6 +2,21 @@
 
 ## Unreleased
 
+### 2026-08-17 — Require a sale price to assign a plate
+The "Assign one" form on `/admin/plates` no longer accepts a blank sale
+price — `sellPrice` is now a `required` field client-side, and
+`assignNextUnassignedPlateAction` rejects a blank submission server-side
+with a clean error before calling into the database, closing the gap
+that made 7b's revenue figures able to silently undercount a real sale
+as untracked. `assignNextUnassignedPlate()`'s `sellPriceCents` parameter
+is now required at the type level too, not just optional-with-a-runtime-
+check, so a future caller forgetting to pass it is a compile error.
+
+Also removed `assignPlateAction`/`assignPlateToBusiness` — the original
+per-plate assign path, made unreachable when the previous change grouped
+unassigned plates by batch (nothing in the UI has called it since; this
+is dead-code cleanup, not a behavior change).
+
 ### 2026-08-17 — Grouped unassigned plates + business search/fold (scale pass)
 Two scalability fixes to admin UI that was one-card-per-row with no way
 to collapse or filter, ahead of the real 20-unit NFC batch (and future

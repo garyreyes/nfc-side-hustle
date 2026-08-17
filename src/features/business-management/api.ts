@@ -355,60 +355,6 @@ export async function listPlates(): Promise<PlateListItem[]> {
     .orderBy(plates.status, plates.slug);
 }
 
-// Atomic check-and-set via the WHERE clause (status = "unassigned"),
-// not a separate select-then-update — avoids a TOCTOU race against a
-// concurrent assignment of the same plate without needing a transaction
-// (this driver doesn't support them, see PROJECT_FACTS.md).
-export async function assignPlateToBusiness(input: {
-  plateId: string;
-  businessId: string;
-  // Optional, same as unitCostCents — a sale recorded without a price
-  // stays untracked rather than becoming a false ₱0 sale (see schema.ts).
-  sellPriceCents?: number | null;
-}) {
-  await requirePlatformAdmin();
-
-  if (!UUID_PATTERN.test(input.plateId)) {
-    throw new BusinessManagementError("That plate no longer exists.");
-  }
-  if (
-    input.sellPriceCents != null &&
-    (!Number.isInteger(input.sellPriceCents) || input.sellPriceCents < 0)
-  ) {
-    throw new BusinessManagementError("Sale price must be a non-negative amount.");
-  }
-
-  try {
-    const [updated] = await db
-      .update(plates)
-      .set({
-        businessId: input.businessId,
-        status: "active",
-        assignedAt: new Date(),
-        sellPriceCents: input.sellPriceCents ?? null,
-      })
-      .where(and(eq(plates.id, input.plateId), eq(plates.status, "unassigned")))
-      .returning({ id: plates.id });
-
-    if (!updated) {
-      // Either the plate doesn't exist, or it's no longer unassigned
-      // (already assigned, possibly by a concurrent request) — both
-      // collapse to the same message since the caller's next step is
-      // the same either way: reload the list and check its current state.
-      throw new BusinessManagementError("This plate no longer exists or is no longer unassigned.");
-    }
-    return updated;
-  } catch (err) {
-    if (err instanceof BusinessManagementError) {
-      throw err;
-    }
-    if (isPgError(err, PG_FOREIGN_KEY_VIOLATION)) {
-      throw new BusinessManagementError("That business no longer exists.");
-    }
-    throw err;
-  }
-}
-
 // Assigns ONE plate out of a whole batch+capability group of unassigned
 // stock, rather than a specific plateId — used by /admin/plates' grouped
 // "Assign one" summary row, since pre-sale unassigned units within one
@@ -426,24 +372,26 @@ export async function assignPlateToBusiness(input: {
 // outer status check included, the loser's UPDATE matches zero rows
 // once it acquires the lock and rechecks, and gets the same clean
 // "no unassigned plates left" error a real stockout would produce —
-// same check-and-set principle as assignPlateToBusiness above, just
+// a check-and-set guard, same principle as setPlateStatus below, just
 // with a subquery choosing the target row instead of a caller-supplied
 // plateId.
+//
+// sellPriceCents is required, not optional — an assignment with no
+// price recorded is exactly the gap that made /admin/inventory's revenue
+// figures unreliable (see CHANGES.md, 7b), so this is enforced at the
+// type level, not left to the caller to remember.
 export async function assignNextUnassignedPlate(input: {
   batchId: string | null;
   capability: "qr" | "nfc" | "combo";
   businessId: string;
-  sellPriceCents?: number | null;
+  sellPriceCents: number;
 }) {
   await requirePlatformAdmin();
 
   if (input.batchId !== null && !UUID_PATTERN.test(input.batchId)) {
     throw new BusinessManagementError("That batch no longer exists.");
   }
-  if (
-    input.sellPriceCents != null &&
-    (!Number.isInteger(input.sellPriceCents) || input.sellPriceCents < 0)
-  ) {
+  if (!Number.isInteger(input.sellPriceCents) || input.sellPriceCents < 0) {
     throw new BusinessManagementError("Sale price must be a non-negative amount.");
   }
 
@@ -462,7 +410,7 @@ export async function assignNextUnassignedPlate(input: {
         businessId: input.businessId,
         status: "active",
         assignedAt: new Date(),
-        sellPriceCents: input.sellPriceCents ?? null,
+        sellPriceCents: input.sellPriceCents,
       })
       .where(and(inArray(plates.id, candidateId), eq(plates.status, "unassigned")))
       .returning({ id: plates.id, slug: plates.slug });
@@ -571,9 +519,9 @@ export async function updatePlateCapability(input: {
 }
 
 // Can only move between active <-> suspended, never touch an unassigned
-// plate — enforced atomically via the WHERE clause (same pattern as
-// assignPlateToBusiness), since "suspend" only makes sense for a plate
-// that was actually active for some business.
+// plate — enforced atomically via the WHERE clause (same check-and-set
+// pattern as assignNextUnassignedPlate above), since "suspend" only makes
+// sense for a plate that was actually active for some business.
 export async function setPlateStatus(input: { plateId: string; status: "active" | "suspended" }) {
   await requirePlatformAdmin();
 
