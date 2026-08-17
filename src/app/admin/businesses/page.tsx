@@ -72,26 +72,11 @@ export default async function AdminBusinessesPage({
 
       <Card title="Add a business">
         <form action={createBusinessAction} className={formStyles.form}>
-          <div className={formStyles.formRow}>
-            <div className={formStyles.field}>
-              <label className={formStyles.fieldLabel} htmlFor="name">
-                Business name
-              </label>
-              <input className={formStyles.input} id="name" type="text" name="name" required />
-            </div>
-            <div className={formStyles.field}>
-              <label className={formStyles.fieldLabel} htmlFor="slug">
-                Slug
-              </label>
-              <input
-                className={formStyles.input}
-                id="slug"
-                type="text"
-                name="slug"
-                required
-                pattern="[a-z0-9-]+"
-              />
-            </div>
+          <div className={formStyles.field}>
+            <label className={formStyles.fieldLabel} htmlFor="name">
+              Business name
+            </label>
+            <input className={formStyles.input} id="name" type="text" name="name" required />
           </div>
           <div className={formStyles.field}>
             <label className={formStyles.fieldLabel} htmlFor="googleReviewUrl">
@@ -105,6 +90,11 @@ export default async function AdminBusinessesPage({
               required
             />
           </div>
+          <p className={formStyles.helperText}>
+            Creates the business only — no plate yet. Assign a real one from inventory on{" "}
+            <code>/admin/plates</code>, or use this business&rsquo;s own &ldquo;Add plate&rdquo; form
+            below for a one-off untracked plate.
+          </p>
           <div className={formStyles.formRow}>
             <div className={formStyles.field}>
               <label className={formStyles.fieldLabel} htmlFor="ownerEmail">

@@ -344,3 +344,19 @@ Durable, project-specific decisions that should survive across sessions.
   that's confirmed. NFC is unaffected either way (chips are rewritable
   after manufacture, which is why the current 20-unit order is
   all-NFC). See `onboarding.md`'s QR section for the full sequence.
+- **"Add a business" no longer auto-creates a plate (2026-08-18).**
+  Originally, filling in a Slug field on that form immediately created
+  one untracked, ad-hoc plate alongside the business — a leftover from
+  before batch/inventory tracking existed. Removed once real usage
+  showed it was pure clutter at real scale (an orphan plate on every
+  single business, forever, on the Plates page). The standalone "Add
+  plate" form still on each business's own card is unaffected — still
+  the intentional path for a genuinely one-off untracked plate.
+- **`/admin/plates`'s "Assign one to business" can target a specific
+  slug now (2026-08-18), not just an arbitrary pick from the group.**
+  Added specifically for pre-printed QR stock: once the physical unit
+  in hand already has a fixed code on it, "any unassigned plate in this
+  group" isn't good enough — the wrong slug ending up on the wrong
+  physical card would mean a QR that redirects nowhere useful. Optional
+  and irrelevant for NFC, where any unassigned chip still works the
+  same as before.
