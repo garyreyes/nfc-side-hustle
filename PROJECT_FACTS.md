@@ -295,3 +295,26 @@ Durable, project-specific decisions that should survive across sessions.
   1b/1c/2c verification, indistinguishable from real ones by looking
   at them) — deliberately left alone rather than risk deleting a real
   scan; harmless until V3's dashboard exists.
+  **Superseded 2026-08-17**: see the full-wipe entry below — this
+  scan-event caveat no longer applies, `scan_events` is empty now.
+- **2026-08-17: production database fully wiped at the owner's explicit
+  request**, after confirming scope in two separate rounds (per the
+  bulk-delete rule this prompted in `CLAUDE.md`). Deleted: the Saffron
+  Middle Eastern Restaurant business (the original V1 seed data, plus
+  its `saffron` plate — never actually printed/handed to a real
+  business, confirmed safe to remove), the "01" test batch and all 21
+  of its plates (recorded as QR capability, not the real 20-unit NFC
+  order — that hadn't been entered yet), all 69 scan events, and all 18
+  stale login sessions. Preserved: the platform_admin user
+  (`gary_reyes@dlsu.edu.ph`) only. The database is a clean slate as of
+  this date — anything referencing Saffron, batch "01," or pre-8/17 scan
+  counts in earlier session history describes data that no longer
+  exists.
+- **The V7 decision to have the business partner share the owner's one
+  admin login (see `ARCHITECTURE.md` § V7) was reversed on 2026-08-17.**
+  `/admin/team` now lets any existing platform_admin create another one
+  with their own separate credentials — motivated by shared-login
+  drawbacks (can't tell who did what, can't revoke one person's access
+  without changing the password for everyone). Still no self-service
+  signup and no "forgot password" flow, matching the V4 baseline;
+  account recovery stays a direct DB script.

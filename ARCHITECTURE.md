@@ -586,9 +586,10 @@ not-yet-sold units would have zero database representation and
   was actually recorded, since pre-V7 plates and ad-hoc "Add plate"
   creations have none).
 - Gated by the existing `requirePlatformAdmin()` — no new role, no new
-  permission model. The business partner shares the one existing admin
-  login rather than getting a separate account, a deliberate choice to
-  keep this feature from growing its own access-control surface.
+  permission model. ~~The business partner shares the one existing admin
+  login rather than getting a separate account~~ — superseded: see
+  `/admin/team` below, added once shared credentials stopped being
+  workable (can't tell who did what, can't revoke individually).
 
 **Deliberately out of scope for 7a**: no revenue or sale-price tracking
 (cost and counts only — "sold" means the assignment event, not a payment
@@ -630,6 +631,49 @@ src/
       actions.ts                            # + recordInventoryArrivalAction; assignPlateAction takes sellPrice
   app/
     admin/inventory/page.tsx                # arrival form + per-capability stock breakdown + sales/revenue table
+```
+
+## Team management — `/admin/team`
+
+Post-V7 addition, reversing the V7 decision above: instead of the
+business partner sharing the platform owner's one login, each admin now
+gets their own account. No schema change — `users.role` already had a
+`platform_admin` value from V4, this just adds a UI path to create more
+of them (previously only possible via a one-off `scripts/create-admin.ts`
+run directly against the DB).
+
+- New feature folder `features/team-management/` (not
+  `business-management/` — creating an admin has no business
+  association at all, a genuinely different concern) with
+  `listPlatformAdmins()` and `createPlatformAdmin()`, mirroring
+  `createBusinessOwner()`'s shape almost exactly: hash via the existing
+  `lib/auth/passwords.ts`, insert into `users` with a specific role,
+  gated by `requirePlatformAdmin()` both at the Server Action layer and
+  inside the api function itself (defense in depth, same pattern as
+  everywhere else in this codebase).
+- `/admin/team`: a list of every current admin's email + when they were
+  added, plus an "Add an admin" form (email + password).
+- No new auth mechanism — reuses `lib/auth/` entirely, per the hard-halt
+  in `CLAUDE.md`. Deliberately no self-service signup, no email
+  verification, no "forgot password" flow — same simplicity as the
+  original admin account; recovery, if an admin is ever locked out,
+  stays a direct DB script, not a UI feature (matches the V4 baseline).
+- Verified against real production data as a permission-boundary check
+  (this grants the highest privilege level in the app): confirmed an
+  unauthenticated request and a `business_owner`-role session both get
+  redirected without creating anything, a real `platform_admin` session
+  succeeds, and the newly created admin can itself pass
+  `requirePlatformAdmin()`.
+
+Folder structure addition:
+```
+src/
+  features/
+    team-management/
+      api.ts                                # NEW — listPlatformAdmins(), createPlatformAdmin()
+      actions.ts                             # NEW — createPlatformAdminAction
+  app/
+    admin/team/page.tsx                      # NEW — admin list + create form
 ```
 
 ## Roadmap context

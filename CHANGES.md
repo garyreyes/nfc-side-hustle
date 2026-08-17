@@ -2,6 +2,40 @@
 
 ## Unreleased
 
+### 2026-08-17 — Full production data wipe
+At the owner's explicit request, after confirming exact scope twice
+(what's in the DB, then a final go/no-go naming the specific
+consequence): deleted the Saffron Middle Eastern Restaurant business and
+its plates, the "01" test batch (21 plates, recorded QR when the real
+order is NFC — never the real inventory), all 69 scan events, and all 18
+stale sessions. Preserved only the platform_admin user. This prompted
+the new bulk-delete confirmation rule added to `CLAUDE.md` in the prior
+harness-setup audit — exercised for real here for the first time.
+
+### 2026-08-17 — Admin team management (`/admin/team`)
+Reverses the V7 decision that the business partner would share the
+owner's one admin login — added a proper way to create additional
+`platform_admin` accounts instead. New `features/team-management/`
+(separate from `business-management/` since creating an admin has no
+business association at all): `listPlatformAdmins()` and
+`createPlatformAdmin()`, mirroring `createBusinessOwner()`'s shape
+almost exactly (hash via the existing `lib/auth/passwords.ts`, insert
+into `users` with a role, gated by `requirePlatformAdmin()` at both the
+Server Action and api layers). `/admin/team`: a list of current admins
++ an "Add an admin" form. No new auth mechanism — reuses `lib/auth/`
+entirely, per the hard-halt just added to `CLAUDE.md`. No self-service
+signup, no email verification, no password-reset flow, matching the V4
+baseline.
+
+Classified as correctness-critical (grants the highest privilege level
+in the app) and verified against real production data via a temporary
+authenticated route: confirmed an unauthenticated request and a
+`business_owner`-role session both get cleanly redirected without
+creating anything, a real `platform_admin` session succeeds, and the
+newly created admin can itself pass `requirePlatformAdmin()` — 5/5
+checks passed. Verification route, script, and all test users/sessions
+deleted afterward and confirmed absent.
+
 ### 2026-08-17 — Require a sale price to assign a plate
 The "Assign one" form on `/admin/plates` no longer accepts a blank sale
 price — `sellPrice` is now a `required` field client-side, and
