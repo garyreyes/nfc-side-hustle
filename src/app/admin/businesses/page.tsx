@@ -17,13 +17,26 @@ import styles from "./page.module.css";
 export default async function AdminBusinessesPage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string }>;
+  searchParams: Promise<{ error?: string; q?: string }>;
 }) {
   const session = await requirePlatformAdmin();
 
-  const { error } = await searchParams;
+  const { error, q: qParam } = await searchParams;
+  const q = (qParam ?? "").trim();
   const [businesses, scanTotals] = await Promise.all([listBusinesses(), getBusinessScanTotals()]);
   const totalScans = scanTotals.reduce((sum, b) => sum + b.totalScans, 0);
+
+  // Server-rendered, no client JS — matches the rest of this project's
+  // filtering (e.g. admin/plates' ?status= tabs). Search is a submitted
+  // GET form, not a live-filter input.
+  const visibleBusinesses = q
+    ? businesses.filter((b) => b.name.toLowerCase().includes(q.toLowerCase()))
+    : businesses;
+  // Folding a business card open by default only when a search actually
+  // narrowed the list — an unfiltered page of many businesses stays
+  // collapsed for scannability, but searching implies "show me this
+  // one's details" so the match shouldn't require an extra click.
+  const autoExpand = q.length > 0;
 
   return (
     <AppShell
@@ -118,20 +131,53 @@ export default async function AdminBusinessesPage({
 
       <div style={{ height: "var(--space-6)" }} />
 
+      <form method="get" className={styles.searchForm}>
+        <input
+          className={formStyles.input}
+          type="search"
+          name="q"
+          defaultValue={q}
+          placeholder="Search businesses by name…"
+          aria-label="Search businesses by name"
+        />
+        <SubmitButton className={`${formStyles.buttonSecondary} ${formStyles.buttonSmall}`} pendingLabel="Searching…">
+          Search
+        </SubmitButton>
+        {q && (
+          <a href="/admin/businesses" className={styles.clearSearch}>
+            Clear
+          </a>
+        )}
+      </form>
+
+      {q && (
+        <p className={styles.searchSummary}>
+          {visibleBusinesses.length} of {businesses.length} business{businesses.length === 1 ? "" : "es"} match
+          &ldquo;{q}&rdquo;.
+        </p>
+      )}
+
       <div className={styles.businessList}>
-        {businesses.map((business) => {
+        {visibleBusinesses.length === 0 && (
+          <p className={styles.emptyNote}>No businesses match &ldquo;{q}&rdquo;.</p>
+        )}
+        {visibleBusinesses.map((business) => {
           const branchById = new Map(
             business.branches.map((b) => [b.branchId, `${b.name} — ${b.googleReviewUrl}`])
           );
 
           return (
-            <div key={business.businessId} className={styles.businessCard}>
-              <div className={styles.businessHeader}>
+            <details key={business.businessId} className={styles.businessCard} open={autoExpand}>
+              <summary className={styles.businessHeader}>
                 <div>
                   <div className={styles.businessName}>{business.name}</div>
                   <div className={styles.businessUrl}>{business.googleReviewUrl}</div>
                 </div>
-              </div>
+                <span className={styles.businessMeta}>
+                  {business.plates.length} plate{business.plates.length === 1 ? "" : "s"} ·{" "}
+                  {business.branches.length} branch{business.branches.length === 1 ? "" : "es"}
+                </span>
+              </summary>
 
               <div className={styles.sections}>
                 <div className={styles.section}>
@@ -258,7 +304,7 @@ export default async function AdminBusinessesPage({
                   )}
                 </div>
               </div>
-            </div>
+            </details>
           );
         })}
       </div>

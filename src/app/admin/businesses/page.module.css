@@ -12,13 +12,78 @@
   padding: var(--space-5);
 }
 
+/* .businessCard is a <details> element; .businessHeader is its <summary>.
+   Collapsed by default so a long business list stays scannable — see
+   admin/businesses/page.tsx's autoExpand for when it opens automatically. */
+.businessCard > summary {
+  cursor: pointer;
+  list-style: none;
+}
+.businessCard > summary::-webkit-details-marker {
+  display: none;
+}
+
 .businessHeader {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   justify-content: space-between;
   gap: var(--space-4);
   flex-wrap: wrap;
+  margin-bottom: 0;
+  position: relative;
+  padding-right: var(--space-5);
+}
+
+.businessHeader::after {
+  content: "";
+  position: absolute;
+  right: 2px;
+  top: 50%;
+  width: 7px;
+  height: 7px;
+  border-right: 2px solid var(--color-ink-muted);
+  border-bottom: 2px solid var(--color-ink-muted);
+  transform: translateY(-70%) rotate(45deg);
+  transition: transform 0.15s ease;
+}
+
+.businessCard[open] > .businessHeader {
   margin-bottom: var(--space-5);
+}
+
+.businessCard[open] > .businessHeader::after {
+  transform: translateY(-30%) rotate(-135deg);
+}
+
+.businessMeta {
+  font-size: 12px;
+  color: var(--color-ink-muted);
+  white-space: nowrap;
+}
+
+.searchForm {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin-bottom: var(--space-4);
+  max-width: 480px;
+}
+
+.searchForm input {
+  flex: 1;
+}
+
+.clearSearch {
+  font-size: 13px;
+  color: var(--color-ink-muted);
+  text-decoration: underline;
+  white-space: nowrap;
+}
+
+.searchSummary {
+  font-size: 13px;
+  color: var(--color-ink-muted);
+  margin-bottom: var(--space-4);
 }
 
 .businessName {

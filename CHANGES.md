@@ -2,6 +2,46 @@
 
 ## Unreleased
 
+### 2026-08-17 — Grouped unassigned plates + business search/fold (scale pass)
+Two scalability fixes to admin UI that was one-card-per-row with no way
+to collapse or filter, ahead of the real 20-unit NFC batch (and future
+100+-unit batches) landing.
+
+`/admin/plates`: unassigned plates within one batch+capability are
+interchangeable pre-sale (nobody picks *which* generic unit goes to a
+business, only how many are left), so they're now collapsed into one
+summary row per batch+capability group ("94 unassigned — Assign one")
+instead of one card per physical unit. The group's "Assign one" form
+picks an arbitrary still-unassigned plate atomically — added
+`assignNextUnassignedPlate()`, using the same check-and-set discipline as
+`assignPlateToBusiness()`: the `status = 'unassigned'` guard is repeated
+in the UPDATE's own WHERE clause (not just the subquery that picks which
+row), so two concurrent "Assign one" clicks against the same group can't
+double-assign one physical unit — the loser gets a clean stockout error,
+not a silent double-sell. Already-sold plates (meaningfully distinct by
+which business owns them) keep their individual cards. Also added a
+group-level "Fix capability for all N" bulk action
+(`updateCapabilityForUnassignedGroup()`), replacing the per-plate
+capability editor that grouping would otherwise have silently removed
+for unassigned stock (e.g. correcting a batch recorded as QR when the
+physical units are actually NFC).
+
+`/admin/businesses`: added a name search (`?q=`, server-rendered GET
+form, no client JS — same pattern as `/admin/plates`' `?status=` tabs)
+and made each business card a native `<details>`/`<summary>` disclosure,
+collapsed by default so a long business list stays scannable. A search
+match auto-expands (since finding one implies wanting its detail), an
+unfiltered browse stays collapsed.
+
+Verified `assignNextUnassignedPlate()`'s concurrency-safety guarantee and
+`updateCapabilityForUnassignedGroup()` against real production data via a
+temporary authenticated route: assigned 3 plates out of a real 3-unit
+test group one at a time, confirmed all 3 were distinct and a 4th attempt
+against the same group failed cleanly with a stockout error rather than
+reassigning an already-sold unit; confirmed a bulk capability fix flipped
+exactly the targeted group. All temporary batches/plates/sessions and the
+verification route deleted afterward and confirmed absent.
+
 ### 2026-08-17 — Sale price, revenue & profit tracking (7b)
 Follow-up to 7a, closing the "no revenue/sale-price tracking" gap that
 sub-phase deliberately left out. One new nullable column on `plates`:

@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { requirePlatformAdmin } from "@/lib/auth/dal";
 import { isValidSlug } from "@/lib/slug";
 import {
+  assignNextUnassignedPlate,
   assignPlateToBusiness,
   BusinessManagementError,
   createBranch,
@@ -14,6 +15,7 @@ import {
   recordInventoryArrival,
   setPlateBranch,
   setPlateStatus,
+  updateCapabilityForUnassignedGroup,
   updatePlateCapability,
 } from "./api";
 
@@ -202,6 +204,75 @@ export async function assignPlateAction(plateId: string, formData: FormData) {
       redirect(`/admin/plates?error=${encodeURIComponent(err.message)}`);
     }
     console.error("assignPlateAction: unexpected error", err);
+    redirect(`/admin/plates?error=${encodeURIComponent("Something went wrong.")}`);
+  }
+
+  redirect("/admin/plates");
+}
+
+// batchId/capability are bound via .bind() from the grouped "Assign one"
+// summary row (see admin/plates/page.tsx) — the caller picks a GROUP,
+// not a specific plate, and the server chooses which interchangeable
+// unassigned unit within it actually gets assigned.
+export async function assignNextUnassignedPlateAction(
+  batchId: string | null,
+  capability: "qr" | "nfc" | "combo",
+  formData: FormData
+) {
+  await requirePlatformAdmin();
+
+  const businessId = formField(formData, "businessId");
+  if (!businessId) {
+    redirect(`/admin/plates?error=${encodeURIComponent("Choose a business to assign this plate to.")}`);
+  }
+
+  const sellPriceRaw = formField(formData, "sellPrice");
+  let sellPriceCents: number | undefined;
+  if (sellPriceRaw) {
+    const sellPriceMajor = Number(sellPriceRaw);
+    if (!Number.isFinite(sellPriceMajor) || sellPriceMajor < 0) {
+      redirect(`/admin/plates?error=${encodeURIComponent("Sale price must be a non-negative number.")}`);
+    }
+    sellPriceCents = Math.round(sellPriceMajor * 100);
+  }
+
+  try {
+    await assignNextUnassignedPlate({ batchId, capability, businessId, sellPriceCents });
+  } catch (err) {
+    if (err instanceof BusinessManagementError) {
+      redirect(`/admin/plates?error=${encodeURIComponent(err.message)}`);
+    }
+    console.error("assignNextUnassignedPlateAction: unexpected error", err);
+    redirect(`/admin/plates?error=${encodeURIComponent("Something went wrong.")}`);
+  }
+
+  redirect("/admin/plates");
+}
+
+// batchId/fromCapability are bound via .bind() from the same grouped
+// summary row — this bulk-fixes the capability for every still-unassigned
+// plate in that group at once (e.g. correcting a batch recorded as QR
+// when the physical units are actually NFC), since there's no individual
+// unassigned plate row left for a per-plate editor to point at.
+export async function updateGroupCapabilityAction(
+  batchId: string | null,
+  fromCapability: "qr" | "nfc" | "combo",
+  formData: FormData
+) {
+  await requirePlatformAdmin();
+
+  const toCapability = formField(formData, "capability");
+  if (toCapability !== "qr" && toCapability !== "nfc" && toCapability !== "combo") {
+    redirect(`/admin/plates?error=${encodeURIComponent("Invalid capability.")}`);
+  }
+
+  try {
+    await updateCapabilityForUnassignedGroup({ batchId, fromCapability, toCapability });
+  } catch (err) {
+    if (err instanceof BusinessManagementError) {
+      redirect(`/admin/plates?error=${encodeURIComponent(err.message)}`);
+    }
+    console.error("updateGroupCapabilityAction: unexpected error", err);
     redirect(`/admin/plates?error=${encodeURIComponent("Something went wrong.")}`);
   }
 

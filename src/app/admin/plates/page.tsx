@@ -1,7 +1,8 @@
 import {
-  assignPlateAction,
+  assignNextUnassignedPlateAction,
   setPlateBranchAction,
   setPlateStatusAction,
+  updateGroupCapabilityAction,
   updatePlateCapabilityAction,
 } from "@/features/business-management/actions";
 import { listBusinesses, listPlates, type PlateListItem } from "@/features/business-management/api";
@@ -27,6 +28,45 @@ function badgeTone(status: PlateListItem["status"]): "neutral" | "accent" | "dan
   return "neutral";
 }
 
+// Unassigned plates within one batch+capability are interchangeable —
+// nobody has ever needed to pick WHICH generic pre-sale unit goes to a
+// given business, only how many are left. So instead of one card per
+// unassigned plate (unreadable once a batch is 100+ units), they're
+// collapsed into one summary row per group; only plates that actually
+// belong to a business (meaningfully distinct from each other) still get
+// their own card.
+type UnassignedGroup = {
+  key: string;
+  batchId: string | null;
+  batchName: string | null;
+  capability: PlateListItem["capability"];
+  count: number;
+};
+
+function groupUnassigned(plates: PlateListItem[]): UnassignedGroup[] {
+  const groups: UnassignedGroup[] = [];
+  const byKey = new Map<string, UnassignedGroup>();
+  for (const plate of plates) {
+    if (plate.status !== "unassigned") continue;
+    const key = `${plate.batchId ?? "none"}::${plate.capability}`;
+    const existing = byKey.get(key);
+    if (existing) {
+      existing.count += 1;
+      continue;
+    }
+    const group: UnassignedGroup = {
+      key,
+      batchId: plate.batchId,
+      batchName: plate.batchName,
+      capability: plate.capability,
+      count: 1,
+    };
+    byKey.set(key, group);
+    groups.push(group);
+  }
+  return groups;
+}
+
 export default async function AdminPlatesPage({
   searchParams,
 }: {
@@ -48,6 +88,9 @@ export default async function AdminPlatesPage({
 
   const visiblePlates =
     statusFilter === "all" ? allPlates : allPlates.filter((p) => p.status === statusFilter);
+
+  const unassignedGroups = groupUnassigned(visiblePlates);
+  const individualPlates = visiblePlates.filter((p) => p.status !== "unassigned");
 
   const branchesByBusiness = new Map(businesses.map((b) => [b.businessId, b.branches]));
 
@@ -99,11 +142,85 @@ export default async function AdminPlatesPage({
         ))}
       </nav>
 
-      {visiblePlates.length === 0 ? (
+      {unassignedGroups.length === 0 && individualPlates.length === 0 ? (
         <p className={styles.plateMeta}>No plates match this filter.</p>
       ) : (
         <div className={styles.plateList}>
-          {visiblePlates.map((plate) => {
+          {unassignedGroups.map((group) => (
+            <div key={group.key} className={styles.plateCard}>
+              <div className={styles.plateIdentity}>
+                <span className={styles.plateSlug}>
+                  {group.count} unassigned plate{group.count === 1 ? "" : "s"}
+                </span>
+                <span className={styles.badgeRow}>
+                  <Badge tone="neutral">unassigned</Badge>
+                  <Badge>{group.capability}</Badge>
+                </span>
+                <span className={styles.plateMeta}>
+                  {group.batchName ? `Batch: ${group.batchName}` : "No batch"}
+                </span>
+              </div>
+
+              <div className={styles.plateActions}>
+                <div className={styles.actionGroup}>
+                  <span className={styles.actionLabel}>Assign one to business</span>
+                  <form
+                    action={assignNextUnassignedPlateAction.bind(null, group.batchId, group.capability)}
+                    className={styles.inlineForm}
+                  >
+                    <select className={formStyles.select} name="businessId" required defaultValue="">
+                      <option value="" disabled>
+                        Choose a business…
+                      </option>
+                      {businesses.map((b) => (
+                        <option key={b.businessId} value={b.businessId}>
+                          {b.name}
+                        </option>
+                      ))}
+                    </select>
+                    <input
+                      className={formStyles.input}
+                      type="number"
+                      name="sellPrice"
+                      min="0"
+                      step="0.01"
+                      placeholder="Sale price (₱)"
+                      aria-label="Sale price in pesos"
+                      style={{ width: "9rem" }}
+                    />
+                    <SubmitButton
+                      className={`${formStyles.buttonSecondary} ${formStyles.buttonSmall}`}
+                      pendingLabel="Assigning…"
+                    >
+                      Assign
+                    </SubmitButton>
+                  </form>
+                </div>
+
+                <div className={styles.actionGroup}>
+                  <span className={styles.actionLabel}>Fix capability for all {group.count}</span>
+                  <form
+                    action={updateGroupCapabilityAction.bind(null, group.batchId, group.capability)}
+                    className={styles.inlineForm}
+                  >
+                    <select className={formStyles.select} name="capability" defaultValue={group.capability}>
+                      <option value="qr">QR</option>
+                      <option value="nfc">NFC</option>
+                      <option value="combo">Combo</option>
+                    </select>
+                    <SubmitButton
+                      className={`${formStyles.buttonSecondary} ${formStyles.buttonSmall}`}
+                      pendingLabel="Saving…"
+                    >
+                      Save
+                    </SubmitButton>
+                  </form>
+                </div>
+              </div>
+            </div>
+          ))}
+
+          {individualPlates.map((plate) => {
             const businessBranches = plate.businessId ? branchesByBusiness.get(plate.businessId) ?? [] : [];
 
             return (
@@ -122,94 +239,55 @@ export default async function AdminPlatesPage({
                 </div>
 
                 <div className={styles.plateActions}>
-                  {plate.status === "unassigned" ? (
-                    <div className={styles.actionGroup}>
-                      <span className={styles.actionLabel}>Assign to business</span>
-                      <form
-                        action={assignPlateAction.bind(null, plate.plateId)}
-                        className={styles.inlineForm}
+                  <div className={styles.actionGroup}>
+                    <span className={styles.actionLabel}>Business</span>
+                    <span className={styles.assignedLine}>{plate.businessName}</span>
+                  </div>
+
+                  <div className={styles.actionGroup}>
+                    <span className={styles.actionLabel}>Branch</span>
+                    <form
+                      action={setPlateBranchAction.bind(null, plate.plateId)}
+                      className={styles.inlineForm}
+                    >
+                      <select
+                        className={formStyles.select}
+                        name="branchId"
+                        defaultValue={plate.branchId ?? ""}
                       >
-                        <select className={formStyles.select} name="businessId" required defaultValue="">
-                          <option value="" disabled>
-                            Choose a business…
+                        <option value="">No branch</option>
+                        {businessBranches.map((branch) => (
+                          <option key={branch.branchId} value={branch.branchId}>
+                            {branch.name}
                           </option>
-                          {businesses.map((b) => (
-                            <option key={b.businessId} value={b.businessId}>
-                              {b.name}
-                            </option>
-                          ))}
-                        </select>
-                        <input
-                          className={formStyles.input}
-                          type="number"
-                          name="sellPrice"
-                          min="0"
-                          step="0.01"
-                          placeholder="Sale price (₱)"
-                          aria-label="Sale price in pesos"
-                          style={{ width: "9rem" }}
-                        />
-                        <SubmitButton
-                          className={`${formStyles.buttonSecondary} ${formStyles.buttonSmall}`}
-                          pendingLabel="Assigning…"
-                        >
-                          Assign
-                        </SubmitButton>
-                      </form>
-                    </div>
-                  ) : (
-                    <>
-                      <div className={styles.actionGroup}>
-                        <span className={styles.actionLabel}>Business</span>
-                        <span className={styles.assignedLine}>{plate.businessName}</span>
-                      </div>
+                        ))}
+                      </select>
+                      <SubmitButton
+                        className={`${formStyles.buttonSecondary} ${formStyles.buttonSmall}`}
+                        pendingLabel="Saving…"
+                      >
+                        Save
+                      </SubmitButton>
+                    </form>
+                  </div>
 
-                      <div className={styles.actionGroup}>
-                        <span className={styles.actionLabel}>Branch</span>
-                        <form
-                          action={setPlateBranchAction.bind(null, plate.plateId)}
-                          className={styles.inlineForm}
-                        >
-                          <select
-                            className={formStyles.select}
-                            name="branchId"
-                            defaultValue={plate.branchId ?? ""}
-                          >
-                            <option value="">No branch</option>
-                            {businessBranches.map((branch) => (
-                              <option key={branch.branchId} value={branch.branchId}>
-                                {branch.name}
-                              </option>
-                            ))}
-                          </select>
-                          <SubmitButton
-                            className={`${formStyles.buttonSecondary} ${formStyles.buttonSmall}`}
-                            pendingLabel="Saving…"
-                          >
-                            Save
-                          </SubmitButton>
-                        </form>
-                      </div>
-
-                      <div className={styles.actionGroup}>
-                        <span className={styles.actionLabel}>Status</span>
-                        <form
-                          action={setPlateStatusAction.bind(
-                            null,
-                            plate.plateId,
-                            plate.status === "active" ? "suspended" : "active"
-                          )}
-                        >
-                          <SubmitButton
-                            className={`${formStyles.buttonSecondary} ${formStyles.buttonSmall}`}
-                            pendingLabel="Saving…"
-                          >
-                            {plate.status === "active" ? "Suspend" : "Reactivate"}
-                          </SubmitButton>
-                        </form>
-                      </div>
-                    </>
-                  )}
+                  <div className={styles.actionGroup}>
+                    <span className={styles.actionLabel}>Status</span>
+                    <form
+                      action={setPlateStatusAction.bind(
+                        null,
+                        plate.plateId,
+                        plate.status === "active" ? "suspended" : "active"
+                      )}
+                    >
+                      <SubmitButton
+                        className={`${formStyles.buttonSecondary} ${formStyles.buttonSmall}`}
+                        pendingLabel="Saving…"
+                      >
+                        {plate.status === "active" ? "Suspend" : "Reactivate"}
+                      </SubmitButton>
+                    </form>
+                  </div>
 
                   <div className={styles.actionGroup}>
                     <span className={styles.actionLabel}>Capability</span>
