@@ -327,19 +327,20 @@ Durable, project-specific decisions that should survive across sessions.
   exports). Any future library with the same "reads its own files
   relative to `__dirname` at runtime" pattern will likely need the same
   `serverExternalPackages` treatment, not a code-level fix.
-- **QR-capability plates have an unsolved physical-provisioning
-  problem, discovered 2026-08-18 — do not order QR or combo stock until
-  it's resolved.** The physical acrylic plates come from the Alibaba
-  manufacturer with the QR code already printed/etched in at the
-  factory (random, not chosen by us, not something we can regenerate —
-  a paper sticker on top would ruin the acrylic finish). `npm run
-  qr:generate` and `scripts/generate-batch.ts` both wrongly assumed
-  we'd print and physically stick a QR code onto the plate ourselves;
-  that assumption doesn't hold for the real product. Needs one of: (a)
-  the supplier prints a QR code *we* provide per unit (send them the
-  URL list before they print), or (b) understanding what their random
-  QR actually does when scanned and whether there's a way to configure
-  its destination on their end. The current 20-unit order is all-NFC
-  specifically because NFC chips are rewritable after manufacture, so
-  this problem doesn't apply to NFC or affect anything already ordered.
-  See the "not solved yet" note in `onboarding.md`.
+- **QR-capability physical-provisioning problem (discovered
+  2026-08-18) — resolved in software, still needs supplier
+  confirmation before the next order.** The physical acrylic plates
+  come from the Alibaba manufacturer with the QR code already
+  printed/etched in at the factory — a paper sticker on top would ruin
+  the finish, so the code has to be decided and handed to the supplier
+  *before* they print. `npm run qr:generate-order -- <count>` (run
+  before ordering) generates the slug/URL list to send the supplier;
+  `recordInventoryArrival()` now accepts that same pre-made slug list
+  (via `/admin/inventory`'s "Pre-made slugs" field) instead of always
+  generating random ones, so the plates created on arrival match
+  exactly what's already printed. **Still unconfirmed**: whether the
+  actual supplier will agree to print a QR code we provide per unit,
+  rather than their own random one — don't place a QR/combo order until
+  that's confirmed. NFC is unaffected either way (chips are rewritable
+  after manufacture, which is why the current 20-unit order is
+  all-NFC). See `onboarding.md`'s QR section for the full sequence.

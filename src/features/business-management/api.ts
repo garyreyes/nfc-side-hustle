@@ -554,6 +554,16 @@ export async function recordInventoryArrival(input: {
   capability: "qr" | "nfc" | "combo";
   quantity: number;
   unitCostCents: number;
+  // Pre-made slugs — for stock whose QR code was already fixed at
+  // manufacture time (e.g. printed onto acrylic by the supplier before
+  // shipping), where the slug had to be decided and handed to the
+  // supplier before this arrival was ever recorded, unlike NFC's default
+  // random-slug path where the physical chip is rewritable afterward and
+  // it doesn't matter what slug ends up on it. When provided, quantity
+  // must equal the number of slugs (both stay explicit inputs rather
+  // than deriving one from the other, so a mismatched form submission
+  // fails loudly instead of silently using whichever count won).
+  slugs?: string[];
 }) {
   await requirePlatformAdmin();
 
@@ -574,6 +584,26 @@ export async function recordInventoryArrival(input: {
     throw new BusinessManagementError("Unit cost must be a non-negative whole number of centavos.");
   }
 
+  let slugs: string[];
+  if (input.slugs && input.slugs.length > 0) {
+    if (input.slugs.length !== input.quantity) {
+      throw new BusinessManagementError(
+        `Quantity (${input.quantity}) doesn't match the number of slugs provided (${input.slugs.length}).`
+      );
+    }
+    const invalid = input.slugs.find((s) => !isValidSlug(s));
+    if (invalid) {
+      throw new BusinessManagementError(`"${invalid}" isn't a valid slug (lowercase letters/numbers/hyphens only).`);
+    }
+    const deduped = new Set(input.slugs);
+    if (deduped.size !== input.slugs.length) {
+      throw new BusinessManagementError("The slug list contains duplicates.");
+    }
+    slugs = input.slugs;
+  } else {
+    slugs = generateUniqueSlugs(input.quantity);
+  }
+
   let batch;
   try {
     [batch] = await db.insert(batches).values({ name: batchName }).returning();
@@ -583,8 +613,6 @@ export async function recordInventoryArrival(input: {
     }
     throw err;
   }
-
-  const slugs = generateUniqueSlugs(input.quantity);
 
   try {
     await db.insert(plates).values(

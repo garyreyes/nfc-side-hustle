@@ -110,7 +110,13 @@ teammate to track the hardware side of the business.
 
 - **Record inventory arrival** form: batch name, capability, quantity,
   unit cost. Submitting it creates that many real unassigned plates —
-  this is what feeds the groups you see on `/admin/plates`.
+  this is what feeds the groups you see on `/admin/plates`. An optional
+  **Pre-made slugs** field (one per line) is for stock whose QR code
+  was already printed by the supplier before it arrived — pasting slugs
+  in makes quantity derive from the list automatically and creates
+  plates matching exactly what's physically on the units, instead of
+  generating new random codes. See `onboarding.md` for the full QR
+  ordering sequence this pairs with.
 - Stat cards: ordered, remaining, sold today, sold all-time, revenue
   today, revenue all-time, profit all-time, total cost of everything
   ordered.
@@ -193,9 +199,10 @@ someone hammering it, unrelated to the login system entirely.
 - `scripts/generate-batch.ts` — an older, more elaborate batch generator
   (writes local QR images + a manifest/spec sheet in addition to
   creating the DB rows) — a heavier alternative to **Record inventory
-  arrival** on `/admin/inventory`. Both this and `npm run qr:generate`
-  assume you can print/stick a QR image onto the physical plate
-  yourself, which turned out not to match how the real acrylic
-  QR-capability plates actually get manufactured — see the "not solved
-  yet" note in `onboarding.md` before relying on either for a real QR
-  order.
+  arrival** on `/admin/inventory`. Along with `npm run qr:generate`, it
+  assumes you can print/stick a QR image onto the physical plate
+  yourself — not how the real acrylic QR-capability plates get
+  manufactured. For those, use `npm run qr:generate-order` (before
+  ordering) plus the **Pre-made slugs** field on Record inventory
+  arrival instead — see `onboarding.md`'s QR section for the full
+  sequence.
