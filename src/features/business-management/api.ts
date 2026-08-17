@@ -729,3 +729,97 @@ export async function getInventorySummary(): Promise<CapabilityInventorySummary[
     };
   });
 }
+
+export type BatchSummary = {
+  batchId: string;
+  batchName: string;
+  orderedAt: Date;
+  capability: "qr" | "nfc" | "combo";
+  quantity: number;
+  totalCostCents: number | null;
+  sold: number;
+  remaining: number;
+};
+
+// Grouped by (batchId, capability), not just batchId — a batch is
+// single-capability at arrival time, but /admin/plates' group-level
+// "Fix capability for all N" (V7c) can split one batch across
+// capabilities afterward, so a batch report has to allow for that
+// rather than assuming one row per batch. Plates with no batch (ad-hoc
+// "Add plate" creations) are excluded — there's nothing to report per
+// batch for a plate that was never part of one.
+export async function listBatchSummaries(): Promise<BatchSummary[]> {
+  await requirePlatformAdmin();
+
+  const rows = await db
+    .select({
+      batchId: batches.id,
+      batchName: batches.name,
+      orderedAt: batches.orderedAt,
+      capability: plates.capability,
+      quantity: sql<number>`count(*)`.mapWith(Number),
+      totalCostCents: sql<string | null>`sum(${plates.unitCostCents})`,
+      sold: sql<number>`count(*) filter (where ${plates.assignedAt} is not null)`.mapWith(Number),
+      remaining: sql<number>`count(*) filter (where ${plates.status} = 'unassigned')`.mapWith(Number),
+    })
+    .from(plates)
+    .innerJoin(batches, eq(plates.batchId, batches.id))
+    .groupBy(batches.id, batches.name, batches.orderedAt, plates.capability)
+    .orderBy(batches.orderedAt, plates.capability);
+
+  return rows.map((row) => ({
+    ...row,
+    totalCostCents: row.totalCostCents != null ? Math.round(Number(row.totalCostCents)) : null,
+  }));
+}
+
+export type SoldPlate = {
+  plateId: string;
+  slug: string;
+  capability: "qr" | "nfc" | "combo";
+  businessName: string | null;
+  branchName: string | null;
+  batchName: string | null;
+  soldAt: Date;
+  unitCostCents: number | null;
+  sellPriceCents: number | null;
+  profitCents: number | null;
+};
+
+// "Sold" = assignedAt is not null, same definition used everywhere else
+// in this codebase (getInventorySummary, the plates status filter) — a
+// later-suspended plate still counts, since suspension doesn't undo the
+// sale. profitCents is null whenever either side is untracked (an
+// ad-hoc plate with no recorded cost, or a pre-required-price assignment
+// with no recorded sale price), not a false ₱0.
+export async function listSoldPlates(): Promise<SoldPlate[]> {
+  await requirePlatformAdmin();
+
+  const rows = await db
+    .select({
+      plateId: plates.id,
+      slug: plates.slug,
+      capability: plates.capability,
+      businessName: businesses.name,
+      branchName: branches.name,
+      batchName: batches.name,
+      soldAt: plates.assignedAt,
+      unitCostCents: plates.unitCostCents,
+      sellPriceCents: plates.sellPriceCents,
+    })
+    .from(plates)
+    .leftJoin(businesses, eq(plates.businessId, businesses.id))
+    .leftJoin(branches, eq(plates.branchId, branches.id))
+    .leftJoin(batches, eq(plates.batchId, batches.id))
+    .where(sql`${plates.assignedAt} is not null`)
+    .orderBy(sql`${plates.assignedAt} desc`);
+
+  return rows.map((row) => ({
+    ...row,
+    // Non-null by the WHERE clause above — narrowed here since the
+    // column itself is nullable at the type level.
+    soldAt: row.soldAt as Date,
+    profitCents:
+      row.sellPriceCents != null && row.unitCostCents != null ? row.sellPriceCents - row.unitCostCents : null,
+  }));
+}

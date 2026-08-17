@@ -676,6 +676,67 @@ src/
     admin/team/page.tsx                      # NEW — admin list + create form
 ```
 
+## Inventory exports — XLSX + PDF
+
+Post-V7 addition: `/admin/inventory` gained two download buttons — a
+multi-sheet Excel workbook for working with the raw numbers, and a
+one-page PDF summary report for reading/printing/sharing. First use of a
+file-export library in this codebase.
+
+- `exceljs` for XLSX (three sheets: **Inventory Summary** reuses
+  `getInventorySummary()` exactly as-is — no new math, just formatting
+  already-verified numbers into peso columns; **Batches**, from the new
+  `listBatchSummaries()`, grouped by `(batchId, capability)` rather than
+  just `batchId` since a batch can end up split across capabilities via
+  `/admin/plates`' group-level capability fix; **Items Sold**, from the
+  new `listSoldPlates()`, one row per plate with `assignedAt` set,
+  regardless of current status — a later-suspended plate still counts as
+  sold, matching the definition used everywhere else).
+- `pdfkit` for the PDF — chosen specifically to avoid a headless-browser
+  dependency (Puppeteer/Chromium), which is a common source of bundle-
+  size and cold-start problems on Vercel serverless. Renders totals, the
+  per-capability summary table, and a "most sold" ranking, all from
+  `getInventorySummary()`.
+- **`next.config.ts` gained `serverExternalPackages: ["pdfkit"]`.**
+  pdfkit loads its built-in standard fonts (Helvetica etc.) from `.afm`
+  files via a `__dirname`-relative path at runtime; Turbopack/webpack
+  bundling rewrites that path and breaks font loading with an `ENOENT`
+  for a path that never existed. Keeping it external makes Node's real
+  `require` resolve it directly instead. Any future library that reads
+  its own files relative to `__dirname` at runtime will likely need the
+  same treatment.
+- Both are thin, `requirePlatformAdmin()`-gated Route Handlers
+  (`/api/admin/inventory/export.xlsx`, `/api/admin/inventory/export.pdf`)
+  that call the `features/business-management/api.ts` queries and a
+  small `lib/export/` builder — the byte-level file generation is
+  infrastructure, not business logic, so it lives in `lib/` per this
+  project's own layer-boundary rule, deliberately decoupled from
+  `features/business-management`'s types (structural typing, not an
+  explicit import) so `lib/` doesn't depend on a specific feature.
+- Verified against real production data: inserted a known test batch
+  with a mix of sold/unsold plates, downloaded both files through the
+  real gated routes, and confirmed the XLSX's Batches/Items Sold rows
+  match hand-calculated expected quantities/costs/counts exactly, and
+  that the PDF response is a real, valid PDF (correct content-type,
+  starts with the `%PDF-` magic bytes, non-trivial size) — not just a
+  200 status.
+
+Folder structure addition:
+```
+src/
+  lib/
+    export/
+      xlsx.ts                                 # NEW — buildInventoryWorkbook()
+      pdf.ts                                  # NEW — buildInventoryReport()
+  features/
+    business-management/
+      api.ts                                  # + listBatchSummaries(), listSoldPlates()
+  app/
+    api/admin/inventory/
+      export.xlsx/route.ts                    # NEW
+      export.pdf/route.ts                     # NEW
+```
+
 ## Roadmap context
 
 This is Version 7 of 7 from the project roadmap:

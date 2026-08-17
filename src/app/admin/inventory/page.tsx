@@ -71,6 +71,15 @@ export default async function AdminInventoryPage({
         </p>
       )}
 
+      <div className={styles.exportRow}>
+        <a href="/api/admin/inventory/export.xlsx" className={`${formStyles.buttonSecondary} ${formStyles.buttonSmall}`}>
+          Export to Excel
+        </a>
+        <a href="/api/admin/inventory/export.pdf" className={`${formStyles.buttonSecondary} ${formStyles.buttonSmall}`}>
+          Download PDF report
+        </a>
+      </div>
+
       <div
         style={{
           display: "grid",
