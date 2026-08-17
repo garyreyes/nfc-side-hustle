@@ -102,32 +102,43 @@ whether you're dealing with a QR code or an NFC tag.
 
 ---
 
-## Writing the actual QR code (if the plate is QR)
+## QR-capability plates — not solved yet, don't order QR stock until this is sorted
 
-You're generating an image with a pattern that, when scanned, opens
-that plate's web address. This runs from your computer, not your
-phone.
+Everything below this note was written assuming you'd generate a QR
+image yourself (`npm run qr:generate -- <slug>`) and print/stick it
+onto the plate. **That assumption turned out to be wrong for the real
+physical product**: the acrylic QR/NFC/combo plates come from the
+Alibaba manufacturer with the QR code already printed/etched in at the
+factory — a paper sticker on top would ruin the acrylic finish, and the
+factory-printed code is random, not something you choose or can
+regenerate after the fact.
 
-1. Open a terminal in the project folder.
-2. Run:
-   ```
-   npm run qr:generate -- 34mbqr
-   ```
-   (replace `34mbqr` with the actual slug from the plate card —
-   just the slug itself, not the full URL, and no `/r/` in front)
-3. The script checks that the plate is real and actually resolves
-   before generating anything — if you mistyped the slug, it'll tell
-   you and refuse to make an image, rather than printing a QR code
-   that leads nowhere.
-4. It saves a PNG image into a `qr-codes/` folder in the project, named
-   after the slug (e.g. `34mbqr.png`). That's the image you
-   print onto the physical plate, or have printed at a shop.
+As of now, **you haven't ordered any QR-capability stock** — only the
+20-unit NFC batch — so this isn't blocking anything today. NFC plates
+don't have this problem: the chip is rewritable after manufacture no
+matter what's on it out of the box, so the NFC section below is correct
+and usable as-is.
 
-You don't need to type the `?src=qr` part anywhere — the script adds it
-automatically, invisibly, as part of the address it encodes. It's how
-the system later tells "this scan came from a QR code" apart from "this
-scan came from an NFC tap" on the analytics dashboards. You don't need
-to understand it beyond that; just know the script handles it.
+Before ordering any QR or combo stock, figure out one of these with the
+supplier:
+- Can they print a QR code **you provide** per unit (i.e., encoding
+  your own `nfc-side-hustle.vercel.app/r/<slug>?src=qr` URLs) instead
+  of their own random ones? Common for this kind of product if you send
+  the URL list before they print — this would make QR plates work
+  exactly like NFC ones (assign in the system first to get the slug,
+  then hand the supplier the URL list).
+- If not, what does their random QR actually do when scanned — does it
+  open a URL on a domain they control, with some way for you to
+  configure the destination per code? Or is it just a static ID with no
+  functional redirect until they wire something up?
+
+Once that's answered, this section gets rewritten to match reality —
+don't trust the leftover instructions below until then.
+
+The `npm run qr:generate -- <slug>` script still exists and still
+works correctly (it encodes the right `?src=qr`-tagged URL) — it's just
+not clear yet whether it's usable against your actual physical product,
+since it assumes you can put its output onto the plate yourself.
 
 ---
 
