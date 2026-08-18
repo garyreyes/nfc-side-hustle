@@ -69,6 +69,68 @@ function groupUnassigned(plates: PlateListItem[]): UnassignedGroup[] {
   return groups;
 }
 
+// Assigned plates (active/suspended) belong to a real business, often
+// more than one plate per business once branches or re-sold units pile
+// up — a flat list of cards made that hard to scan once a business had
+// more than one plate. Grouping by business, then by branch within it,
+// mirrors how a human actually thinks about the data: "this business
+// has these plates, split across these locations."
+type BranchPlateGroup = {
+  key: string;
+  branchId: string | null;
+  branchName: string | null;
+  plates: PlateListItem[];
+};
+
+type BusinessPlateGroup = {
+  businessId: string;
+  businessName: string;
+  plates: PlateListItem[];
+  branchGroups: BranchPlateGroup[];
+};
+
+function groupByBusinessAndBranch(plates: PlateListItem[]): BusinessPlateGroup[] {
+  const byBusiness = new Map<string, BusinessPlateGroup>();
+  for (const plate of plates) {
+    // Defensive only — every active/suspended plate has a business by
+    // construction (assignment requires one), but the type is still
+    // nullable, so skip rather than crash on an inconsistent row.
+    if (!plate.businessId) continue;
+
+    let business = byBusiness.get(plate.businessId);
+    if (!business) {
+      business = {
+        businessId: plate.businessId,
+        businessName: plate.businessName ?? "(unnamed business)",
+        plates: [],
+        branchGroups: [],
+      };
+      byBusiness.set(plate.businessId, business);
+    }
+    business.plates.push(plate);
+
+    const branchKey = plate.branchId ?? "none";
+    let branchGroup = business.branchGroups.find((g) => g.key === branchKey);
+    if (!branchGroup) {
+      branchGroup = { key: branchKey, branchId: plate.branchId, branchName: plate.branchName, plates: [] };
+      business.branchGroups.push(branchGroup);
+    }
+    branchGroup.plates.push(plate);
+  }
+
+  const groups = Array.from(byBusiness.values());
+  groups.sort((a, b) => a.businessName.localeCompare(b.businessName));
+  for (const business of groups) {
+    // "No branch" first (the common case), then branches alphabetically.
+    business.branchGroups.sort((a, b) => {
+      if (a.branchId === null) return -1;
+      if (b.branchId === null) return 1;
+      return (a.branchName ?? "").localeCompare(b.branchName ?? "");
+    });
+  }
+  return groups;
+}
+
 export default async function AdminPlatesPage({
   searchParams,
 }: {
@@ -93,6 +155,7 @@ export default async function AdminPlatesPage({
 
   const unassignedGroups = groupUnassigned(visiblePlates);
   const individualPlates = visiblePlates.filter((p) => p.status !== "unassigned");
+  const businessGroups = groupByBusinessAndBranch(individualPlates);
 
   const branchesByBusiness = new Map(businesses.map((b) => [b.businessId, b.branches]));
 
@@ -237,124 +300,143 @@ export default async function AdminPlatesPage({
             </div>
           ))}
 
-          {individualPlates.map((plate) => {
-            const businessBranches = plate.businessId ? branchesByBusiness.get(plate.businessId) ?? [] : [];
+          {businessGroups.map((business) => (
+            <details key={business.businessId} className={styles.businessGroup} open>
+              <summary className={styles.businessGroupHeader}>
+                <span className={styles.businessGroupName}>{business.businessName}</span>
+                <span className={styles.plateMeta}>
+                  {business.plates.length} plate{business.plates.length === 1 ? "" : "s"}
+                </span>
+              </summary>
 
-            return (
-              <div key={plate.plateId} className={styles.plateCard}>
-                <div className={styles.plateIdentity}>
-                  <a href={`/r/${plate.slug}`} className={styles.plateSlug}>
-                    /r/{plate.slug}
-                  </a>
-                  <span className={styles.badgeRow}>
-                    <Badge tone={badgeTone(plate.status)}>{plate.status}</Badge>
-                    <Badge>{plate.capability}</Badge>
-                  </span>
-                  <span className={styles.plateMeta}>
-                    {plate.batchName ? `Batch: ${plate.batchName}` : "No batch"}
-                  </span>
-                </div>
+              <div className={styles.branchGroups}>
+                {business.branchGroups.map((branchGroup) => {
+                  const businessBranches = branchesByBusiness.get(business.businessId) ?? [];
 
-                <div className={styles.plateActions}>
-                  <div className={styles.actionGroup}>
-                    <span className={styles.actionLabel}>Business</span>
-                    <span className={styles.assignedLine}>{plate.businessName}</span>
-                  </div>
+                  return (
+                    <div key={branchGroup.key} className={styles.branchGroup}>
+                      <span className={styles.branchLabel}>{branchGroup.branchName ?? "No branch"}</span>
+                      <div className={styles.branchPlates}>
+                        {branchGroup.plates.map((plate) => (
+                          <div key={plate.plateId} className={styles.plateCard}>
+                            <div className={styles.plateIdentity}>
+                              <a href={`/r/${plate.slug}`} className={styles.plateSlug}>
+                                /r/{plate.slug}
+                              </a>
+                              <span className={styles.badgeRow}>
+                                <Badge tone={badgeTone(plate.status)}>{plate.status}</Badge>
+                                <Badge>{plate.capability}</Badge>
+                              </span>
+                              <span className={styles.plateMeta}>
+                                {plate.batchName ? `Batch: ${plate.batchName}` : "No batch"}
+                              </span>
+                            </div>
 
-                  <div className={styles.actionGroup}>
-                    <span className={styles.actionLabel}>Branch</span>
-                    <form
-                      action={setPlateBranchAction.bind(null, plate.plateId)}
-                      className={styles.inlineForm}
-                    >
-                      <select
-                        className={formStyles.select}
-                        name="branchId"
-                        defaultValue={plate.branchId ?? ""}
-                      >
-                        <option value="">No branch</option>
-                        {businessBranches.map((branch) => (
-                          <option key={branch.branchId} value={branch.branchId}>
-                            {branch.name}
-                          </option>
+                            <div className={styles.plateActions}>
+                              <div className={styles.actionGroup}>
+                                <span className={styles.actionLabel}>Branch</span>
+                                <form
+                                  action={setPlateBranchAction.bind(null, plate.plateId)}
+                                  className={styles.inlineForm}
+                                >
+                                  <select
+                                    className={formStyles.select}
+                                    name="branchId"
+                                    defaultValue={plate.branchId ?? ""}
+                                  >
+                                    <option value="">No branch</option>
+                                    {businessBranches.map((branch) => (
+                                      <option key={branch.branchId} value={branch.branchId}>
+                                        {branch.name}
+                                      </option>
+                                    ))}
+                                  </select>
+                                  <SubmitButton
+                                    className={`${formStyles.buttonSecondary} ${formStyles.buttonSmall}`}
+                                    pendingLabel="Saving…"
+                                  >
+                                    Save
+                                  </SubmitButton>
+                                </form>
+                              </div>
+
+                              <div className={styles.actionGroup}>
+                                <span className={styles.actionLabel}>Status</span>
+                                <form
+                                  action={setPlateStatusAction.bind(
+                                    null,
+                                    plate.plateId,
+                                    plate.status === "active" ? "suspended" : "active"
+                                  )}
+                                >
+                                  <SubmitButton
+                                    className={`${formStyles.buttonSecondary} ${formStyles.buttonSmall}`}
+                                    pendingLabel="Saving…"
+                                  >
+                                    {plate.status === "active" ? "Suspend" : "Reactivate"}
+                                  </SubmitButton>
+                                </form>
+                              </div>
+
+                              <div className={styles.actionGroup}>
+                                <span className={styles.actionLabel}>Capability</span>
+                                <form
+                                  action={updatePlateCapabilityAction.bind(null, plate.plateId)}
+                                  className={styles.inlineForm}
+                                >
+                                  <select
+                                    className={formStyles.select}
+                                    name="capability"
+                                    defaultValue={plate.capability}
+                                  >
+                                    <option value="qr">QR</option>
+                                    <option value="nfc">NFC</option>
+                                    <option value="combo">Combo</option>
+                                  </select>
+                                  <SubmitButton
+                                    className={`${formStyles.buttonSecondary} ${formStyles.buttonSmall}`}
+                                    pendingLabel="Saving…"
+                                  >
+                                    Save
+                                  </SubmitButton>
+                                </form>
+                              </div>
+
+                              <div className={styles.actionGroup}>
+                                <span className={styles.actionLabel}>Sale</span>
+                                <form action={unassignPlateAction.bind(null, plate.plateId)}>
+                                  <SubmitButton
+                                    className={`${formStyles.buttonSecondary} ${formStyles.buttonSmall}`}
+                                    pendingLabel="Undoing…"
+                                    confirmMessage={`Undo the sale of /r/${plate.slug}? It goes back to unassigned inventory — ${business.businessName} loses this plate, and it can be resold to anyone.`}
+                                  >
+                                    Undo sale
+                                  </SubmitButton>
+                                </form>
+                              </div>
+
+                              <div className={styles.actionGroup}>
+                                <span className={styles.actionLabel}>Danger zone</span>
+                                <form action={deletePlateAction.bind(null, plate.plateId)}>
+                                  <SubmitButton
+                                    className={`${formStyles.buttonDanger} ${formStyles.buttonSmall}`}
+                                    pendingLabel="Deleting…"
+                                    confirmMessage={`Permanently delete /r/${plate.slug}? This removes the plate and its scan history for good — the slug can never be reused. If you just want to undo the sale and resell it later, use "Undo sale" instead.`}
+                                  >
+                                    Delete plate
+                                  </SubmitButton>
+                                </form>
+                              </div>
+                            </div>
+                          </div>
                         ))}
-                      </select>
-                      <SubmitButton
-                        className={`${formStyles.buttonSecondary} ${formStyles.buttonSmall}`}
-                        pendingLabel="Saving…"
-                      >
-                        Save
-                      </SubmitButton>
-                    </form>
-                  </div>
-
-                  <div className={styles.actionGroup}>
-                    <span className={styles.actionLabel}>Status</span>
-                    <form
-                      action={setPlateStatusAction.bind(
-                        null,
-                        plate.plateId,
-                        plate.status === "active" ? "suspended" : "active"
-                      )}
-                    >
-                      <SubmitButton
-                        className={`${formStyles.buttonSecondary} ${formStyles.buttonSmall}`}
-                        pendingLabel="Saving…"
-                      >
-                        {plate.status === "active" ? "Suspend" : "Reactivate"}
-                      </SubmitButton>
-                    </form>
-                  </div>
-
-                  <div className={styles.actionGroup}>
-                    <span className={styles.actionLabel}>Capability</span>
-                    <form
-                      action={updatePlateCapabilityAction.bind(null, plate.plateId)}
-                      className={styles.inlineForm}
-                    >
-                      <select className={formStyles.select} name="capability" defaultValue={plate.capability}>
-                        <option value="qr">QR</option>
-                        <option value="nfc">NFC</option>
-                        <option value="combo">Combo</option>
-                      </select>
-                      <SubmitButton
-                        className={`${formStyles.buttonSecondary} ${formStyles.buttonSmall}`}
-                        pendingLabel="Saving…"
-                      >
-                        Save
-                      </SubmitButton>
-                    </form>
-                  </div>
-
-                  <div className={styles.actionGroup}>
-                    <span className={styles.actionLabel}>Sale</span>
-                    <form action={unassignPlateAction.bind(null, plate.plateId)}>
-                      <SubmitButton
-                        className={`${formStyles.buttonSecondary} ${formStyles.buttonSmall}`}
-                        pendingLabel="Undoing…"
-                        confirmMessage={`Undo the sale of /r/${plate.slug}? It goes back to unassigned inventory — ${plate.businessName ?? "the current business"} loses this plate, and it can be resold to anyone.`}
-                      >
-                        Undo sale
-                      </SubmitButton>
-                    </form>
-                  </div>
-
-                  <div className={styles.actionGroup}>
-                    <span className={styles.actionLabel}>Danger zone</span>
-                    <form action={deletePlateAction.bind(null, plate.plateId)}>
-                      <SubmitButton
-                        className={`${formStyles.buttonDanger} ${formStyles.buttonSmall}`}
-                        pendingLabel="Deleting…"
-                        confirmMessage={`Permanently delete /r/${plate.slug}? This removes the plate and its scan history for good — the slug can never be reused. If you just want to undo the sale and resell it later, use "Undo sale" instead.`}
-                      >
-                        Delete plate
-                      </SubmitButton>
-                    </form>
-                  </div>
-                </div>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
-            );
-          })}
+            </details>
+          ))}
         </div>
       )}
     </AppShell>
