@@ -12,6 +12,7 @@ import {
   recordInventoryArrival,
   setPlateBranch,
   setPlateStatus,
+  updateBusiness,
   updateCapabilityForUnassignedGroup,
   updatePlateCapability,
 } from "./api";
@@ -49,7 +50,13 @@ export async function createBusinessAction(formData: FormData) {
   await requirePlatformAdmin();
 
   const name = formField(formData, "name");
+  // Optional — a business can be created with just a name (e.g. a quick
+  // field sale where the real review link isn't known yet) and completed
+  // later via updateBusinessAction.
   const googleReviewUrl = formField(formData, "googleReviewUrl");
+  const contactName = formField(formData, "contactName");
+  const contactEmail = formField(formData, "contactEmail");
+  const notes = formField(formData, "notes");
   const ownerEmail = formField(formData, "ownerEmail");
   const ownerPassword = passwordField(formData, "ownerPassword");
 
@@ -71,7 +78,7 @@ export async function createBusinessAction(formData: FormData) {
   // "Add plate" form on this business's own card afterward for the rare
   // case a genuinely untracked one-off plate is still wanted.
   try {
-    const business = await createBusiness({ name, googleReviewUrl });
+    const business = await createBusiness({ name, googleReviewUrl, contactName, contactEmail, notes });
     if (ownerEmail && ownerPassword) {
       await createBusinessOwner({ businessId: business.id, email: ownerEmail, password: ownerPassword });
     }
@@ -80,6 +87,32 @@ export async function createBusinessAction(formData: FormData) {
       redirect(`/admin/businesses?error=${encodeURIComponent(err.message)}`);
     }
     console.error("createBusinessAction: unexpected error", err);
+    redirect(`/admin/businesses?error=${encodeURIComponent("Something went wrong.")}`);
+  }
+
+  redirect("/admin/businesses");
+}
+
+// businessId is bound via .bind() from the page, same reasoning as
+// addBusinessOwnerAction below. Covers everything editable on a business
+// after creation — name, review URL, and the reference-only contact
+// fields — in one form rather than a separate action per field.
+export async function updateBusinessAction(businessId: string, formData: FormData) {
+  await requirePlatformAdmin();
+
+  const name = formField(formData, "name");
+  const googleReviewUrl = formField(formData, "googleReviewUrl");
+  const contactName = formField(formData, "contactName");
+  const contactEmail = formField(formData, "contactEmail");
+  const notes = formField(formData, "notes");
+
+  try {
+    await updateBusiness({ businessId, name, googleReviewUrl, contactName, contactEmail, notes });
+  } catch (err) {
+    if (err instanceof BusinessManagementError) {
+      redirect(`/admin/businesses?error=${encodeURIComponent(err.message)}`);
+    }
+    console.error("updateBusinessAction: unexpected error", err);
     redirect(`/admin/businesses?error=${encodeURIComponent("Something went wrong.")}`);
   }
 

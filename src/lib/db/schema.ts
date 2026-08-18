@@ -33,7 +33,12 @@ export const sessions = pgTable("sessions", {
 export const businesses = pgTable("businesses", {
   id: uuid("id").primaryKey().defaultRandom(),
   name: text("name").notNull(),
-  googleReviewUrl: text("google_review_url").notNull(),
+  // Nullable as of the "quick sale" feature — a business can be created
+  // in the field with just a name (e.g. a walk-in sale where the real
+  // Google review link isn't known yet) and have the URL filled in later
+  // via updateBusiness(). An "active" plate whose business has no URL
+  // yet is a normal, expected state (see r/[slug]/route.ts), not a bug.
+  googleReviewUrl: text("google_review_url"),
   // Deleting a business owner's account must never delete the business
   // itself (it may have printed QR plates driving real traffic) — set
   // null to return it to the same "no owner yet" state new businesses
@@ -45,6 +50,12 @@ export const businesses = pgTable("businesses", {
   ownerId: uuid("owner_id")
     .unique()
     .references(() => users.id, { onDelete: "set null" }),
+  // Purely a memory-jogger for the admin, unrelated to ownerId's login
+  // account — e.g. "the owner who gave us coffee, bald." Never shown to
+  // the business itself, never validated beyond a length cap.
+  contactName: text("contact_name"),
+  contactEmail: text("contact_email"),
+  notes: text("notes"),
 });
 
 export const branches = pgTable("branches", {

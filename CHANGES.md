@@ -2,6 +2,37 @@
 
 ## Unreleased
 
+### 2026-08-18 — Quick sales without a review link yet, and editable business details
+Two related gaps found while selling in the field: a walk-in sale
+sometimes happens before you have the business's real Google review
+link in hand, and there was previously no way to fix a business's name
+or URL after creation, or to jot down anything about who you actually
+talked to.
+
+**Quick sale**: `businesses.googleReviewUrl` is now optional. "Add a
+business" only requires a name — assign and sell a plate right away,
+and the plate honestly tells whoever scans it "this business hasn't
+finished setting up their review link yet" (a normal 200, not an error)
+until the real URL is added. `plates.businessId` was already nullable
+from V6, but this reuses the simpler path: a real Business row always
+exists, it just starts incomplete instead of blocking the sale.
+
+**Edit business**: every business card on `/admin/businesses` now has a
+"Details" form to update name, review URL, and three new optional,
+reference-only fields — contact name, contact email, and free-text
+notes (e.g. "the owner who gave us coffee, bald") — unrelated to the
+existing Owner login. Notes/contact name show as a short preview right
+in the collapsed card header so they're useful while scanning search
+results, not just after opening a card.
+
+Verified against real production data (11/11 checks): a business
+created with no URL redirects its plate to the friendly "not set up
+yet" message instead of a 500; editing in a real URL immediately makes
+the same plate redirect correctly; invalid contact emails are rejected
+on both create and edit. Migration `0008_small_madrox.sql` (drops
+`NOT NULL` on `google_review_url`, adds `contact_name`/`contact_email`/
+`notes`) applied to production.
+
 ### 2026-08-18 — Choose a specific slug when assigning; remove the auto-plate from "Add a business"
 Two fixes found while field-testing the pre-printed-QR flow for real.
 

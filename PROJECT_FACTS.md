@@ -360,3 +360,21 @@ Durable, project-specific decisions that should survive across sessions.
   physical card would mean a QR that redirects nowhere useful. Optional
   and irrelevant for NFC, where any unassigned chip still works the
   same as before.
+- **`businesses.google_review_url` is nullable as of 2026-08-18 (migration
+  `0008_small_madrox.sql`) — an active plate whose business has no URL
+  yet is now a normal, expected state, not a bug.** Added for walk-in
+  field sales: a business can be created with just a name and completed
+  later. `r/[slug]/route.ts` reflects this — that branch used to
+  `console.error` + 500 on the theory it could never legitimately
+  happen; it's now a plain 200 "not set up yet" message. Any future code
+  reading `businesses.googleReviewUrl` must handle `null`, not assume an
+  active business always has one.
+- **`businesses` also gained `contact_name`/`contact_email`/`notes`
+  (2026-08-18) — reference-only fields for the admin's own memory
+  ("the owner who gave us coffee, bald"), deliberately separate from
+  `ownerId`/the Owner login section.** Never shown to the business
+  itself, never used in the redirect path. Edited via the same "Details"
+  form on each `/admin/businesses` card as name/URL
+  (`updateBusinessAction`); previewed (truncated) right in the
+  collapsed card header so they're visible while scanning search
+  results, not just after opening a card.
