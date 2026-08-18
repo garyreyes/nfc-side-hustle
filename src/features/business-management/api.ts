@@ -4,7 +4,7 @@ import { MANILA_TIMEZONE } from "@/features/analytics/constants";
 import { requirePlatformAdmin } from "@/lib/auth/dal";
 import { hashPassword } from "@/lib/auth/passwords";
 import { db } from "@/lib/db/client";
-import { batches, branches, businesses, capabilityEnum, plates, users } from "@/lib/db/schema";
+import { batches, branches, businesses, capabilityEnum, plates, scanEvents, users } from "@/lib/db/schema";
 import { generateUniqueSlugs, isValidSlug } from "@/lib/slug";
 
 export class BusinessManagementError extends Error {}
@@ -646,6 +646,58 @@ export async function setPlateStatus(input: { plateId: string; status: "active" 
     );
   }
   return updated;
+}
+
+// Undoes a sale — the plate goes back to unassigned inventory (same
+// state as if it just arrived) rather than being deleted, so the slug
+// stays valid and reassignable. Only clears sale-specific columns
+// (business/branch/assignedAt/sellPriceCents); unitCostCents, batchId,
+// capability, and slug are untouched — it's the same physical unit,
+// still costed the same, just not sold to anyone right now.
+export async function unassignPlate(input: { plateId: string }) {
+  await requirePlatformAdmin();
+
+  if (!UUID_PATTERN.test(input.plateId)) {
+    throw new BusinessManagementError("That plate no longer exists.");
+  }
+
+  const [updated] = await db
+    .update(plates)
+    .set({ businessId: null, branchId: null, status: "unassigned", assignedAt: null, sellPriceCents: null })
+    .where(and(eq(plates.id, input.plateId), ne(plates.status, "unassigned")))
+    .returning({ id: plates.id });
+  if (!updated) {
+    throw new BusinessManagementError("This plate no longer exists or isn't currently sold to anyone.");
+  }
+  return updated;
+}
+
+// Permanently removes the plate row (and its scan history) — unlike
+// unassignPlate(), the slug itself stops existing and can never be
+// recreated to mean the same thing again. Only use this for a plate
+// that shouldn't have existed at all (e.g. a test/mistaken row); to
+// undo a real sale so the physical unit can be resold, use
+// unassignPlate() instead.
+export async function deletePlate(input: { plateId: string }) {
+  await requirePlatformAdmin();
+
+  if (!UUID_PATTERN.test(input.plateId)) {
+    throw new BusinessManagementError("That plate no longer exists.");
+  }
+
+  // scanEvents.plateId has no onDelete behavior (defaults to Postgres's
+  // restrict), so its scan history has to go first or the plate delete
+  // below fails on the FK. No transaction support (see PROJECT_FACTS.md)
+  // — a failure between these two deletes could leave the plate row
+  // without matching scan history removed, same accepted-risk class as
+  // every other multi-step write in this file.
+  await db.delete(scanEvents).where(eq(scanEvents.plateId, input.plateId));
+
+  const [deleted] = await db.delete(plates).where(eq(plates.id, input.plateId)).returning({ id: plates.id });
+  if (!deleted) {
+    throw new BusinessManagementError("That plate no longer exists.");
+  }
+  return deleted;
 }
 
 const MAX_INVENTORY_QUANTITY = 1000;
