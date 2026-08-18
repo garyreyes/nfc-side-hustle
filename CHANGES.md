@@ -2,6 +2,21 @@
 
 ## Unreleased
 
+### 2026-08-18 — Group assigned plates by business and branch on /admin/plates
+Previously every assigned (active/suspended) plate was its own flat
+card, in no particular order — hard to scan once a business had more
+than one plate. `/admin/plates` now groups them into Business →
+Branch → Plate: one collapsible section per business, with a "No
+branch" sub-group first and any branches with plates listed after,
+alphabetically. A branch with zero plates doesn't get an empty
+section. The redundant "Business" label on each plate card was removed
+since the group heading already says it.
+
+Verified against a real multi-branch scenario (9/9 checks): a plate
+with no branch lands under "No branch," two plates sharing a branch
+both land under that branch's heading, an unused branch gets no
+section, and "No branch" sorts before named branches.
+
 ### 2026-08-18 — Undo a sale, or delete a plate entirely
 `/admin/plates` gained two new actions on every assigned (active or
 suspended) plate, for correcting a mistaken sale: **Undo sale** clears

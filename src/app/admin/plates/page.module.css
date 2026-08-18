@@ -91,7 +91,60 @@
   gap: var(--space-2);
 }
 
-.assignedLine {
-  font-size: 14px;
-  font-weight: 600;
+.businessGroup {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  padding: var(--space-5);
+}
+
+/* .businessGroup is a <details> element; .businessGroupHeader is its
+   <summary> — same collapsible pattern as admin/businesses' cards, open
+   by default here since plates per business is usually a small list. */
+.businessGroup > summary {
+  cursor: pointer;
+  list-style: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+}
+.businessGroup > summary::-webkit-details-marker {
+  display: none;
+}
+
+.businessGroup[open] > .businessGroupHeader {
+  margin-bottom: var(--space-5);
+}
+
+.businessGroupName {
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.branchGroups {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+
+.branchGroup {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.branchLabel {
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--color-ink-muted);
+}
+
+.branchPlates {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
 }
