@@ -2,6 +2,24 @@
 
 ## Unreleased
 
+### 2026-08-18 — Undo a sale, or delete a plate entirely
+`/admin/plates` gained two new actions on every assigned (active or
+suspended) plate, for correcting a mistaken sale: **Undo sale** clears
+the business/branch/sale price and returns the plate to unassigned
+inventory, so the same physical unit can be reassigned and resold —
+the slug itself is untouched. **Delete plate** permanently removes the
+row and its scan history, for a plate that shouldn't exist at all; the
+slug can never be reused afterward. Delete is the one destructive,
+irreversible action in this admin UI, so it's the only button with a
+confirm prompt (everything else here stays deliberately single-click).
+
+Verified against real production data (9/9 checks): undoing a sale
+clears business/branch/price/date and makes the plate genuinely
+reusable (resold the same slug successfully); undoing an
+already-unassigned plate is rejected, not silently accepted; deleting a
+plate that has scan history actually removes both the plate and its
+scan events (the FK would otherwise block the delete).
+
 ### 2026-08-18 — Quick sales without a review link yet, and editable business details
 Two related gaps found while selling in the field: a walk-in sale
 sometimes happens before you have the business's real Google review

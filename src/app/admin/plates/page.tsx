@@ -1,7 +1,9 @@
 import {
   assignNextUnassignedPlateAction,
+  deletePlateAction,
   setPlateBranchAction,
   setPlateStatusAction,
+  unassignPlateAction,
   updateGroupCapabilityAction,
   updatePlateCapabilityAction,
 } from "@/features/business-management/actions";
@@ -320,6 +322,32 @@ export default async function AdminPlatesPage({
                         pendingLabel="Saving…"
                       >
                         Save
+                      </SubmitButton>
+                    </form>
+                  </div>
+
+                  <div className={styles.actionGroup}>
+                    <span className={styles.actionLabel}>Sale</span>
+                    <form action={unassignPlateAction.bind(null, plate.plateId)}>
+                      <SubmitButton
+                        className={`${formStyles.buttonSecondary} ${formStyles.buttonSmall}`}
+                        pendingLabel="Undoing…"
+                        confirmMessage={`Undo the sale of /r/${plate.slug}? It goes back to unassigned inventory — ${plate.businessName ?? "the current business"} loses this plate, and it can be resold to anyone.`}
+                      >
+                        Undo sale
+                      </SubmitButton>
+                    </form>
+                  </div>
+
+                  <div className={styles.actionGroup}>
+                    <span className={styles.actionLabel}>Danger zone</span>
+                    <form action={deletePlateAction.bind(null, plate.plateId)}>
+                      <SubmitButton
+                        className={`${formStyles.buttonDanger} ${formStyles.buttonSmall}`}
+                        pendingLabel="Deleting…"
+                        confirmMessage={`Permanently delete /r/${plate.slug}? This removes the plate and its scan history for good — the slug can never be reused. If you just want to undo the sale and resell it later, use "Undo sale" instead.`}
+                      >
+                        Delete plate
                       </SubmitButton>
                     </form>
                   </div>

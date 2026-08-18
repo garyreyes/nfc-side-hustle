@@ -9,9 +9,11 @@ import {
   createBusiness,
   createBusinessOwner,
   createPlate,
+  deletePlate,
   recordInventoryArrival,
   setPlateBranch,
   setPlateStatus,
+  unassignPlate,
   updateBusiness,
   updateCapabilityForUnassignedGroup,
   updatePlateCapability,
@@ -334,6 +336,55 @@ export async function setPlateStatusAction(
       redirect(`/admin/plates?error=${encodeURIComponent(err.message)}`);
     }
     console.error("setPlateStatusAction: unexpected error", err);
+    redirect(`/admin/plates?error=${encodeURIComponent("Something went wrong.")}`);
+  }
+
+  redirect("/admin/plates");
+}
+
+// plateId is bound via .bind() from /admin/plates, same reasoning as
+// addBusinessOwnerAction above. Undoes a sale — the plate returns to
+// unassigned inventory, reusable for a future sale — as opposed to
+// deletePlateAction below, which removes the row entirely.
+export async function unassignPlateAction(
+  plateId: string,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- required last param for a Server Action bound to a <form>, not read
+  _formData: FormData
+) {
+  await requirePlatformAdmin();
+
+  try {
+    await unassignPlate({ plateId });
+  } catch (err) {
+    if (err instanceof BusinessManagementError) {
+      redirect(`/admin/plates?error=${encodeURIComponent(err.message)}`);
+    }
+    console.error("unassignPlateAction: unexpected error", err);
+    redirect(`/admin/plates?error=${encodeURIComponent("Something went wrong.")}`);
+  }
+
+  redirect("/admin/plates");
+}
+
+// plateId is bound via .bind() from /admin/plates, same reasoning as
+// addBusinessOwnerAction above. Permanently removes the plate row and
+// its scan history — the page's confirm() prompt (see SubmitButton's
+// confirmMessage) is the only guard here, since there's no undo once
+// this runs.
+export async function deletePlateAction(
+  plateId: string,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- required last param for a Server Action bound to a <form>, not read
+  _formData: FormData
+) {
+  await requirePlatformAdmin();
+
+  try {
+    await deletePlate({ plateId });
+  } catch (err) {
+    if (err instanceof BusinessManagementError) {
+      redirect(`/admin/plates?error=${encodeURIComponent(err.message)}`);
+    }
+    console.error("deletePlateAction: unexpected error", err);
     redirect(`/admin/plates?error=${encodeURIComponent("Something went wrong.")}`);
   }
 
