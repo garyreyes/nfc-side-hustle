@@ -3,6 +3,7 @@ import {
   createBranchAction,
   createBusinessAction,
   createPlateAction,
+  updateBusinessAction,
 } from "@/features/business-management/actions";
 import { getBusinessScanTotals } from "@/features/analytics/api";
 import { listBusinesses } from "@/features/business-management/api";
@@ -13,6 +14,21 @@ import formStyles from "@/shared/ui/form.module.css";
 import { StatCard } from "@/shared/ui/StatCard";
 import { SubmitButton } from "@/shared/ui/SubmitButton";
 import styles from "./page.module.css";
+
+const REMINDER_PREVIEW_LENGTH = 90;
+
+// The whole point of contactName/notes is to jog your memory while
+// scanning search results — so the preview has to show up in the
+// collapsed <summary>, not just after opening a card. Combines both into
+// one line and truncates so a long note doesn't blow out the header.
+function buildReminder(business: { contactName: string | null; notes: string | null }): string | null {
+  const parts = [business.contactName, business.notes].filter((p): p is string => !!p);
+  if (parts.length === 0) return null;
+  const joined = parts.join(" — ");
+  return joined.length > REMINDER_PREVIEW_LENGTH
+    ? `${joined.slice(0, REMINDER_PREVIEW_LENGTH)}…`
+    : joined;
+}
 
 export default async function AdminBusinessesPage({
   searchParams,
@@ -80,20 +96,52 @@ export default async function AdminBusinessesPage({
           </div>
           <div className={formStyles.field}>
             <label className={formStyles.fieldLabel} htmlFor="googleReviewUrl">
-              Google review URL
+              Google review URL (optional)
             </label>
             <input
               className={formStyles.input}
               id="googleReviewUrl"
               type="url"
               name="googleReviewUrl"
-              required
+              placeholder="Leave blank for a quick sale — add it later once you have it"
             />
           </div>
           <p className={formStyles.helperText}>
             Creates the business only — no plate yet. Assign a real one from inventory on{" "}
             <code>/admin/plates</code>, or use this business&rsquo;s own &ldquo;Add plate&rdquo; form
-            below for a one-off untracked plate.
+            below for a one-off untracked plate. No review URL yet? Leave it blank and fill it in later
+            from this business&rsquo;s Edit form — the plate will just say &ldquo;not set up yet&rdquo;
+            until then.
+          </p>
+          <div className={formStyles.formRow}>
+            <div className={formStyles.field}>
+              <label className={formStyles.fieldLabel} htmlFor="contactName">
+                Contact name (optional)
+              </label>
+              <input className={formStyles.input} id="contactName" type="text" name="contactName" />
+            </div>
+            <div className={formStyles.field}>
+              <label className={formStyles.fieldLabel} htmlFor="contactEmail">
+                Contact email (optional)
+              </label>
+              <input className={formStyles.input} id="contactEmail" type="email" name="contactEmail" />
+            </div>
+          </div>
+          <div className={formStyles.field}>
+            <label className={formStyles.fieldLabel} htmlFor="notes">
+              Notes (optional)
+            </label>
+            <textarea
+              className={formStyles.input}
+              id="notes"
+              name="notes"
+              rows={2}
+              placeholder="Anything to jog your memory later — e.g. &quot;the owner who gave us coffee, bald.&quot;"
+            />
+          </div>
+          <p className={formStyles.helperText}>
+            Contact name, email, and notes are just for your own reference — never shown to the
+            business, unrelated to the Owner login below.
           </p>
           <div className={formStyles.formRow}>
             <div className={formStyles.field}>
@@ -156,13 +204,17 @@ export default async function AdminBusinessesPage({
           const branchById = new Map(
             business.branches.map((b) => [b.branchId, `${b.name} — ${b.googleReviewUrl}`])
           );
+          const reminder = buildReminder(business);
 
           return (
             <details key={business.businessId} className={styles.businessCard} open={autoExpand}>
               <summary className={styles.businessHeader}>
                 <div>
                   <div className={styles.businessName}>{business.name}</div>
-                  <div className={styles.businessUrl}>{business.googleReviewUrl}</div>
+                  <div className={styles.businessUrl}>
+                    {business.googleReviewUrl ?? "No review URL yet — edit to add one"}
+                  </div>
+                  {reminder && <div className={styles.businessReminder}>{reminder}</div>}
                 </div>
                 <span className={styles.businessMeta}>
                   {business.plates.length} plate{business.plates.length === 1 ? "" : "s"} ·{" "}
@@ -171,6 +223,94 @@ export default async function AdminBusinessesPage({
               </summary>
 
               <div className={styles.sections}>
+                <div className={styles.section}>
+                  <span className={styles.sectionTitle}>Details</span>
+                  <form
+                    action={updateBusinessAction.bind(null, business.businessId)}
+                    className={formStyles.form}
+                  >
+                    <div className={formStyles.field}>
+                      <label className={formStyles.fieldLabel} htmlFor={`name-${business.businessId}`}>
+                        Business name
+                      </label>
+                      <input
+                        className={formStyles.input}
+                        id={`name-${business.businessId}`}
+                        type="text"
+                        name="name"
+                        defaultValue={business.name}
+                        required
+                      />
+                    </div>
+                    <div className={formStyles.field}>
+                      <label
+                        className={formStyles.fieldLabel}
+                        htmlFor={`googleReviewUrl-${business.businessId}`}
+                      >
+                        Google review URL
+                      </label>
+                      <input
+                        className={formStyles.input}
+                        id={`googleReviewUrl-${business.businessId}`}
+                        type="url"
+                        name="googleReviewUrl"
+                        defaultValue={business.googleReviewUrl ?? ""}
+                        placeholder="Not set up yet"
+                      />
+                    </div>
+                    <div className={formStyles.formRow}>
+                      <div className={formStyles.field}>
+                        <label
+                          className={formStyles.fieldLabel}
+                          htmlFor={`contactName-${business.businessId}`}
+                        >
+                          Contact name
+                        </label>
+                        <input
+                          className={formStyles.input}
+                          id={`contactName-${business.businessId}`}
+                          type="text"
+                          name="contactName"
+                          defaultValue={business.contactName ?? ""}
+                        />
+                      </div>
+                      <div className={formStyles.field}>
+                        <label
+                          className={formStyles.fieldLabel}
+                          htmlFor={`contactEmail-${business.businessId}`}
+                        >
+                          Contact email
+                        </label>
+                        <input
+                          className={formStyles.input}
+                          id={`contactEmail-${business.businessId}`}
+                          type="email"
+                          name="contactEmail"
+                          defaultValue={business.contactEmail ?? ""}
+                        />
+                      </div>
+                    </div>
+                    <div className={formStyles.field}>
+                      <label className={formStyles.fieldLabel} htmlFor={`notes-${business.businessId}`}>
+                        Notes
+                      </label>
+                      <textarea
+                        className={formStyles.input}
+                        id={`notes-${business.businessId}`}
+                        name="notes"
+                        rows={2}
+                        defaultValue={business.notes ?? ""}
+                      />
+                    </div>
+                    <SubmitButton
+                      className={`${formStyles.buttonSecondary} ${formStyles.buttonSmall}`}
+                      pendingLabel="Saving…"
+                    >
+                      Save details
+                    </SubmitButton>
+                  </form>
+                </div>
+
                 <div className={styles.section}>
                   <span className={styles.sectionTitle}>Plates</span>
                   <div className={styles.itemList}>

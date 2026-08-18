@@ -47,13 +47,14 @@ export async function GET(
   }
 
   if (!plate.googleReviewUrl) {
-    // Defensive only — an "active" plate should always have a business
-    // (createPlate/status transitions enforce this), so this path means
-    // something inconsistent happened rather than a normal user error.
-    console.error(`Active plate ${plate.plateId} has no googleReviewUrl (missing business?)`);
-    return new NextResponse("This plate isn't set up correctly. Please contact the business.", {
-      status: 500,
-    });
+    // A normal, expected state, not a bug: a business can now be created
+    // with just a name (quick field sale) and have its Google review URL
+    // filled in later via /admin/businesses' Edit form. Until then, an
+    // active plate pointing at it has nothing to redirect to yet.
+    return new NextResponse(
+      "Thanks for scanning! This business hasn't finished setting up their review link yet — please check back soon.",
+      { status: 200 }
+    );
   }
 
   let redirectUrl: URL;

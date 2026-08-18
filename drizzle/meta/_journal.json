@@ -57,6 +57,13 @@
       "when": 1786922955988,
       "tag": "0007_v7b_sell_price",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1787056870659,
+      "tag": "0008_small_madrox",
+      "breakpoints": true
     }
   ]
 }

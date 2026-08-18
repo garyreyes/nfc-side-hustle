@@ -10,6 +10,41 @@ import { generateUniqueSlugs, isValidSlug } from "@/lib/slug";
 export class BusinessManagementError extends Error {}
 
 const MAX_NAME_LENGTH = 200;
+const MAX_NOTES_LENGTH = 2000;
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+// Shared by createBusiness()/updateBusiness() — googleReviewUrl,
+// contactName, contactEmail, and notes are all optional, but "optional"
+// still means "valid if present, not silently mangled." Returns null for
+// an empty/omitted value so it's stored as SQL NULL, not "".
+function normalizeGoogleReviewUrl(value: string | undefined): string | null {
+  const trimmed = (value ?? "").trim();
+  if (!trimmed) return null;
+  try {
+    new URL(trimmed);
+  } catch {
+    throw new BusinessManagementError("Google review URL must be a valid URL.");
+  }
+  return trimmed;
+}
+
+function normalizeContactEmail(value: string | undefined): string | null {
+  const trimmed = (value ?? "").trim();
+  if (!trimmed) return null;
+  if (!EMAIL_PATTERN.test(trimmed)) {
+    throw new BusinessManagementError("Contact email must be a valid email address.");
+  }
+  return trimmed;
+}
+
+function normalizeOptionalText(value: string | undefined, label: string, maxLength: number): string | null {
+  const trimmed = (value ?? "").trim();
+  if (!trimmed) return null;
+  if (trimmed.length > maxLength) {
+    throw new BusinessManagementError(`${label} must be ${maxLength} characters or fewer.`);
+  }
+  return trimmed;
+}
 
 // Postgres SQLSTATE codes the @neondatabase/serverless driver sets as
 // `.code` on the DatabaseError it throws. Drizzle wraps that in its own
@@ -30,12 +65,19 @@ function isPgError(err: unknown, code: string): boolean {
   return typeof cause === "object" && cause !== null && "code" in cause && cause.code === code;
 }
 
-export async function createBusiness(input: { name: string; googleReviewUrl: string }) {
+export async function createBusiness(input: {
+  name: string;
+  // Optional as of the "quick sale" feature — a business can be created
+  // in the field with just a name and completed later via
+  // updateBusiness() once the real Google review link is known.
+  googleReviewUrl?: string;
+  contactName?: string;
+  contactEmail?: string;
+  notes?: string;
+}) {
   await requirePlatformAdmin();
 
   const name = input.name.trim();
-  const googleReviewUrl = input.googleReviewUrl.trim();
-
   if (!name) {
     throw new BusinessManagementError("Business name is required.");
   }
@@ -43,13 +85,50 @@ export async function createBusiness(input: { name: string; googleReviewUrl: str
     throw new BusinessManagementError(`Business name must be ${MAX_NAME_LENGTH} characters or fewer.`);
   }
 
-  try {
-    new URL(googleReviewUrl);
-  } catch {
-    throw new BusinessManagementError("Google review URL must be a valid URL.");
+  const googleReviewUrl = normalizeGoogleReviewUrl(input.googleReviewUrl);
+  const contactName = normalizeOptionalText(input.contactName, "Contact name", MAX_NAME_LENGTH);
+  const contactEmail = normalizeContactEmail(input.contactEmail);
+  const notes = normalizeOptionalText(input.notes, "Notes", MAX_NOTES_LENGTH);
+
+  const [business] = await db
+    .insert(businesses)
+    .values({ name, googleReviewUrl, contactName, contactEmail, notes })
+    .returning();
+  return business;
+}
+
+export async function updateBusiness(input: {
+  businessId: string;
+  name: string;
+  googleReviewUrl?: string;
+  contactName?: string;
+  contactEmail?: string;
+  notes?: string;
+}) {
+  await requirePlatformAdmin();
+
+  const name = input.name.trim();
+  if (!name) {
+    throw new BusinessManagementError("Business name is required.");
+  }
+  if (name.length > MAX_NAME_LENGTH) {
+    throw new BusinessManagementError(`Business name must be ${MAX_NAME_LENGTH} characters or fewer.`);
   }
 
-  const [business] = await db.insert(businesses).values({ name, googleReviewUrl }).returning();
+  const googleReviewUrl = normalizeGoogleReviewUrl(input.googleReviewUrl);
+  const contactName = normalizeOptionalText(input.contactName, "Contact name", MAX_NAME_LENGTH);
+  const contactEmail = normalizeContactEmail(input.contactEmail);
+  const notes = normalizeOptionalText(input.notes, "Notes", MAX_NOTES_LENGTH);
+
+  const [business] = await db
+    .update(businesses)
+    .set({ name, googleReviewUrl, contactName, contactEmail, notes })
+    .where(eq(businesses.id, input.businessId))
+    .returning();
+
+  if (!business) {
+    throw new BusinessManagementError("Business not found.");
+  }
   return business;
 }
 
@@ -244,7 +323,10 @@ export async function createBusinessOwner(input: {
 export type BusinessWithPlates = {
   businessId: string;
   name: string;
-  googleReviewUrl: string;
+  googleReviewUrl: string | null;
+  contactName: string | null;
+  contactEmail: string | null;
+  notes: string | null;
   ownerEmail: string | null;
   plates: { plateId: string; slug: string; capability: "qr" | "nfc" | "combo"; branchId: string | null }[];
   branches: { branchId: string; name: string; googleReviewUrl: string }[];
@@ -258,6 +340,9 @@ export async function listBusinesses(): Promise<BusinessWithPlates[]> {
       businessId: businesses.id,
       name: businesses.name,
       googleReviewUrl: businesses.googleReviewUrl,
+      contactName: businesses.contactName,
+      contactEmail: businesses.contactEmail,
+      notes: businesses.notes,
       ownerEmail: users.email,
       plateId: plates.id,
       slug: plates.slug,
@@ -298,6 +383,9 @@ export async function listBusinesses(): Promise<BusinessWithPlates[]> {
         businessId: row.businessId,
         name: row.name,
         googleReviewUrl: row.googleReviewUrl,
+        contactName: row.contactName,
+        contactEmail: row.contactEmail,
+        notes: row.notes,
         ownerEmail: row.ownerEmail,
         plates: [],
         branches: branchesByBusiness.get(row.businessId) ?? [],

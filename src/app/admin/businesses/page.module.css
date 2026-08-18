@@ -99,6 +99,13 @@
   margin-top: 2px;
 }
 
+.businessReminder {
+  font-size: 12px;
+  font-style: italic;
+  color: var(--color-ink-muted);
+  margin-top: 2px;
+}
+
 .sections {
   display: grid;
   gap: var(--space-6);
